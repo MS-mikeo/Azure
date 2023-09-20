@@ -26,21 +26,25 @@ foreach ($Log in $Logs)
               # Extracting nested properties -> requestbody to a table to extract Principal ID & Type
               $nestedproperties=""
               $nestedproperties=@($log.Properties.Content)
-			        if(($nestedproperties.requestbody -ne $null)) 
+	      # If nestedproperties contains data, extracting the data into friendly output
+              if(($nestedproperties.requestbody -ne $null)) 
                 {
+		# Setting up the table
                 $table=""
                 $table=$nestedproperties.requestbody | convertfrom-json
                 # Getting Principal Id
                 $PrincipalId=""
                 $PrincipalId=$table.Properties.PrincipalId
-				        $RoleDefinitionIdFULL=""
-				        $RoleDefinitionIdFULL=$table.Properties.RoleDefinitionId
-				        $RoleDefinitionId=""
-				        $RoleDefinitionId=$RoleDefinitionIdFULL.split("/")[4]
-				        $RoleDefinitionName=""
-				        $RoleDefinitionName=get-azroledefinition -Id $RoleDefinitionId
+		#Getting Role Definition ID and Name in friendly format
+		$RoleDefinitionIdFULL=""
+		$RoleDefinitionIdFULL=$table.Properties.RoleDefinitionId
+		$RoleDefinitionId=""
+		$RoleDefinitionId=($RoleDefinitionIdFULL.split('/'))[4]				
+		$RoleDefinitionName=""
+		$RoleDefinitionName=(get-azroledefinition -Id $RoleDefinitionId).Name				
+		# Clearing Variables
                 $Username=""
-                $Groupname=""			
+                $Groupname=""
                     if(($table.Properties.PrincipalType -eq "User")) 
                       {
                         # Getting User                        
@@ -51,48 +55,48 @@ foreach ($Log in $Logs)
                         write-host "Operation Name: " $log.OperationName
                         write-host "Status: " $log.Status
                         write-host "Event Initiated by: " $log.Caller
+			write-host "Role Definition Id:" $RoleDefinitionId
+			write-host "Role Definition Name:" $RoleDefinitionName
                         write-host "Object type given permissions:" $table.Properties.PrincipalType
                         write-host "Object Id given permissions:" $PrincipalId
                         write-host "User given permissions:" $Username
-						            write-host "Role Definition ID:" $RoleDefinitionId
-						            write-host "Role Definition Name:" $RoleDefinitionName				
                         write-host "Scope: " $log.Authorization.Scope
                         write-host " "                        
                         }  
                           if(($table.Properties.PrincipalType -eq "ServicePrincipal"))
                           {                
-                          #Getting SPN
+                          # Getting SPN
                           $SPNname=""
                           $SPNname=(Get-AzureADServicePrincipal -objectid $PrincipalId | select-object Displayname).DisplayName
-                          #Output
+                          # Output
                           write-host "Operation Id: " $log.OperationId
                           write-host "Event Timestamp: " $log.EventTimestamp
                           write-host "Operation Name: " $log.OperationName
                           write-host "Status: " $log.Status
                           write-host "Event Initiated by: " $log.Caller
+			  write-host "Role Definition Id:" $RoleDefinitionId
+			  write-host "Role Definition Name:" $RoleDefinitionName
                           write-host "Object type given permissions:" $table.Properties.PrincipalType
                           write-host "Object Id given permissions:" $PrincipalId
                           write-host "SPN given permissions:" $SPNname
-						              write-host "Role Definition ID:" $table.Properties.RoleDefinitionId
-						              write-host "Role Definition Name:" $RoleDefinitionName	
                           write-host " "
                           }
                               if(($table.Properties.PrincipalType -eq "Group"))
                               {                
-                              #Getting Group
+                              # Getting Group
                               $Groupname=""
                               $Groupname=(get-azureadgroup -objectid $PrincipalId | select-object Displayname).DisplayName
-                              #Output
+                              # Output
                               write-host "Operation Id: " $log.OperationId
                               write-host "Event Timestamp: " $log.EventTimestamp
                               write-host "Operation Name: " $log.OperationName
                               write-host "Status: " $log.Status
                               write-host "Event Initiated by: " $log.Caller
+			      write-host "Role Definition Id:" $RoleDefinitionId
+			      write-host "Role Definition Name:" $RoleDefinitionName
                               write-host "Object type given permissions:" $table.Properties.PrincipalType
                               write-host "Object Id given permissions:" $PrincipalId
                               write-host "Group given permissions:" $Groupname
-							                write-host "Role Definition ID:" $table.Properties.RoleDefinitionId
-							                write-host "Role Definition Name:" $RoleDefinitionName	
                               write-host " "
                               }
                 }
@@ -112,3 +116,4 @@ foreach ($Log in $Logs)
                    }
 $log=""
 }
+
