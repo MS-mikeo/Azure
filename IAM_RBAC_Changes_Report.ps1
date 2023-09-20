@@ -21,12 +21,20 @@
 # Set Amount of days to look back for assignments
 $days=7
 
+#Setting up array to catch all Output from each loop
+$RBAC_Change_Log=@()
+
 # Connecting to Azure AD to lookup users, groups, and SPNs
 connect-azuread
+
+# Getting list of subscriptions to loop through for Activity Log retrieval
+$subscriptions=get-azsubscription
+foreach ($subscription in $subscriptions) 
+{
+set-azcontext -Subscription $subscription.Id 
 # Gathering role assignments for set amount of previous days, correlated with object IDs for successful events to avoid confusion
 $SuccessLogs=""
 $Logs=@()
-$RBAC_Change_Log=@()
 $SuccessLogs=Get-AzLog -StartTime (Get-Date).AddDays(-$days) | Where-Object {$_.Authorization.Action -like 'Microsoft.Authorization/roleAssignments/*' `
 -and $_.Status -eq "Succeeded"}  
 foreach ($SuccessLog in $SuccessLogs) 
@@ -120,7 +128,8 @@ foreach ($Log in $Logs)
 			      "Added_ID_DisplayName" = $Group.DisplayName;
 	                      	}
                 }
-	}	
+	}
+    }
 }                      
 
 $RBAC_Change_Log | Select-Object "OperationId","EventTimestamp","OperationName","Status","InitiatedBy_Caller","RoleDefinitionId", `
