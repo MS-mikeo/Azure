@@ -24,10 +24,12 @@ connect-azuread
 # Gathering role assignments for set amount of previous days, correlated with object IDs for successful events to avoid confusion
 $SuccessLogs=""
 $Logs=@()
-$SuccessLogs=Get-AzLog -StartTime (Get-Date).AddDays(-$days) | Where-Object {$_.Authorization.Action -like 'Microsoft.Authorization/roleAssignments/*' -and $_.Status -eq "Succeeded"}  
+$SuccessLogs=Get-AzLog -StartTime (Get-Date).AddDays(-$days) | Where-Object {$_.Authorization.Action -like 'Microsoft.Authorization/roleAssignments/*' `
+-and $_.Status -eq "Succeeded"}  
 foreach ($SuccessLog in $SuccessLogs) 
 	{
-	$logs+=Get-AzLog -StartTime (Get-Date).AddDays(-$days) | Where-Object {$_.Authorization.Action -like 'Microsoft.Authorization/roleAssignments/*' -and $_.OperationId -eq $SuccessLog.OperationId} 
+	$logs+=Get-AzLog -StartTime (Get-Date).AddDays(-$days) | Where-Object {$_.Authorization.Action -like 'Microsoft.Authorization/roleAssignments/*' `
+ 	-and $_.OperationId -eq $SuccessLog.OperationId -and $_.Status -ne "Succeeded"} 
 	}
 foreach ($Log in $Logs) 
               {
