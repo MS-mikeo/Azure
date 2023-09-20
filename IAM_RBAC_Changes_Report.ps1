@@ -123,7 +123,7 @@ foreach ($Log in $Logs)
                       
 $log=""
 }
-
+}
 $RBAC_Change_Log | Select-Object "OperationId","EventTimestamp","OperationName","Status","InitiatedBy_Caller","RoleDefinitionId", `
 "RoleDefinitionName","Entity","Scope","PrincipalType","Added_ID","Added_ID_DisplayName" `
 | Sort-Object "Scope","RoleDefinitionName","PrincipalType","Added_ID_DisplayName" # | Export-CSV $Filename -Notype
