@@ -15,10 +15,12 @@
 
 
 # This script will retrieve all Azure RBAC Role Assignments in IAM from the Activity Logs for the set amount of days & then provide the information in a user-friendly readable format. 
+# Version 1.2 Updated on 9/20/2023 by MikeO - Added the check to correlate successful events & remove entries that do not add value to the reporting
 # Version 1.1 Updated on 9/20/2023 by MikeO - Added the friendly name lookup for the Role Definition and the cleaned up Entity field 
 
 # Set Amount of days to look back for assignments
 $days=7
+
 # Connecting to Azure AD to lookup users, groups, and SPNs
 connect-azuread
 # Gathering role assignments for set amount of previous days, correlated with object IDs for successful events to avoid confusion
