@@ -1,5 +1,5 @@
-============================================================================================
-
+# ===========================================================================================
+#
 # This sample script is not supported under any Microsoft standard support program or service. 
 # The sample script is provided AS IS without warranty of any kind. Microsoft further disclaims 
 # all implied warranties including, without limitation, any implied warranties of merchantability 
@@ -10,8 +10,9 @@
 # interruption, loss of business information, or other pecuniary loss) arising out of the use of or 
 # inability to use the sample scripts or documentation, even if Microsoft has been advised of the 
 # possibility of such damages 
+#
+# ===========================================================================================
 
-============================================================================================
 
 # This script will retrieve all Azure RBAC Role Assignments in IAM from the Activity Logs for the set amount of days & then provide the information in a user-friendly readable format. 
 
