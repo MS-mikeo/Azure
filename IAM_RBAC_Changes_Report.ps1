@@ -56,81 +56,71 @@ foreach ($Log in $Logs)
 		$RoleDefinitionName=(get-azroledefinition -Id $RoleDefinitionId).Name
   		# Getting the entity (object) that the pemissions were applied to
     		$Entity=($nestedproperties.entity.split('/providers/Microsoft.Authorization/roleAssignments/'))[0]
-		# Clearing Variables
-                $Username=""
-                $Groupname=""
+		$RBAC_Change_Log=@()
                     if(($table.Properties.PrincipalType -eq "User")) 
                       {
-                        # Getting User                        
-                        $Username=(get-azureaduser -objectid $PrincipalId | select-object UserPrincipalName).UserPrincipalName
+                        # Getting User Info
+			$User=""
+                        $User=get-azureaduser -objectid $PrincipalId
                         # Output
-                        write-host "Operation Id: " $log.OperationId
-                        write-host "Event Timestamp: " $log.EventTimestamp
-                        write-host "Operation Name: " $log.OperationName
-                        write-host "Status: " $log.Status
-                        write-host "Event Initiated by: " $log.Caller
-			write-host "Role Definition Id:" $RoleDefinitionId
-			write-host "Role Definition Name:" $RoleDefinitionName
-   			write-host "Entity:" $Entity
-			write-host "Object type given permissions:" $table.Properties.PrincipalType
-                        write-host "Object Id given permissions:" $PrincipalId
-                        write-host "User given permissions:" $Username
-                        write-host "Scope: " $log.Authorization.Scope
-                        write-host " "                        
+                        $RBAC_Change_Log += New-Object PSCustomObject -Property @{
+                	"OperationId" = $log.OperationId;
+               		"EventTimestamp" = $log.EventTimestamp;
+		 	"OperationName" = $log.OperationName;
+    			"Status" = $log.Status;
+       			"InitiatedBy_Caller" = $log.Caller;
+	  		"RoleDefinitionId" = $RoleDefinitionId;
+	 		"RoleDefinitionName" = $RoleDefinitionName;	
+	  		"Entity" = $Entity;
+                        "Scope" = $log.Authorization.Scope;
+     			"PrincipalType" = $table.Properties.PrincipalType;
+			"Added_ID" = $User.UserPrincipalName;
+			"Added_ID_DisplayName" = $User.DisplayName;
+               			}
                         }  
                           if(($table.Properties.PrincipalType -eq "ServicePrincipal"))
                           {                
-                          # Getting SPN
-                          $SPNname=""
-                          $SPNname=(Get-AzureADServicePrincipal -objectid $PrincipalId | select-object Displayname).DisplayName
+                          # Getting SPN Info                        
+                          $SPN=""
+                          $SPN=Get-AzureADServicePrincipal -objectid $PrincipalId
                           # Output
-                          write-host "Operation Id: " $log.OperationId
-                          write-host "Event Timestamp: " $log.EventTimestamp
-                          write-host "Operation Name: " $log.OperationName
-                          write-host "Status: " $log.Status
-                          write-host "Event Initiated by: " $log.Caller
-			  write-host "Role Definition Id:" $RoleDefinitionId
-			  write-host "Role Definition Name:" $RoleDefinitionName
-     			  write-host "Entity:" $Entity
-                          write-host "Object type given permissions:" $table.Properties.PrincipalType
-                          write-host "Object Id given permissions:" $PrincipalId
-                          write-host "SPN given permissions:" $SPNname
-                          write-host " "
+                          $RBAC_Change_Log += New-Object PSCustomObject -Property @{
+                	  "OperationId" = $log.OperationId;
+               		  "EventTimestamp" = $log.EventTimestamp;
+		 	  "OperationName" = $log.OperationName;
+    			  "Status" = $log.Status;
+       			  "InitiatedBy_Caller" = $log.Caller;
+	    		  "RoleDefinitionId" = $RoleDefinitionId;
+	 		  "RoleDefinitionName" = $RoleDefinitionName;	
+	  		  "Entity" = $Entity;
+                          "Scope" = $log.Authorization.Scope;
+     			  "PrincipalType" = $table.Properties.PrincipalType;
+			  "Added_ID" = $SPN.ObjectId;
+			  "Added_ID_DisplayName" = $SPN.DisplayName;
+     			  	}
                           }
                               if(($table.Properties.PrincipalType -eq "Group"))
                               {                
-                              # Getting Group
-                              $Groupname=""
-                              $Groupname=(get-azureadgroup -objectid $PrincipalId | select-object Displayname).DisplayName
+                              # Getting Group Info
+                              $Group=""
+                              $Group=get-azureadgroup -objectid $PrincipalId
                               # Output
-                              write-host "Operation Id: " $log.OperationId
-                              write-host "Event Timestamp: " $log.EventTimestamp
-                              write-host "Operation Name: " $log.OperationName
-                              write-host "Status: " $log.Status
-                              write-host "Event Initiated by: " $log.Caller
-			      write-host "Role Definition Id:" $RoleDefinitionId
-			      write-host "Role Definition Name:" $RoleDefinitionName
-	 		      write-host "Entity:" $Entity
-                              write-host "Object type given permissions:" $table.Properties.PrincipalType
-                              write-host "Object Id given permissions:" $PrincipalId
-                              write-host "Group given permissions:" $Groupname
-                              write-host " "
-                              }
+                              $RBAC_Change_Log += New-Object PSCustomObject -Property @{
+                	      "OperationId" = $log.OperationId;
+               		      "EventTimestamp" = $log.EventTimestamp;
+		 	      "OperationName" = $log.OperationName;
+    			      "Status" = $log.Status;
+       			      "InitiatedBy_Caller" = $log.Caller;
+	    		      "RoleDefinitionId" = $RoleDefinitionId;
+	 		      "RoleDefinitionName" = $RoleDefinitionName;	
+	  		      "Entity" = $Entity;
+                              "Scope" = $log.Authorization.Scope;
+     			      "PrincipalType" = $table.Properties.PrincipalType;
+			      "Added_ID" = $Group.ObjectId;
+			      "Added_ID_DisplayName" = $Group.DisplayName;
+	                      	}
                 }
-                Else 
-                 {
-                   write-host "Operation Id: " $log.OperationId
-                   write-host "Event Timestamp: " $log.EventTimestamp
-                   write-host "Operation Name: " $log.OperationName
-                   write-host "Status: " $log.Status
-                   write-host "Event Initiated by: " $log.Caller
-                   write-host "Object type given permissions: N/A" 
-                   write-host "Object type Id permissions: N/A"
-                   write-host "User/Group/ServicePrincipal given permissions: N/A"
-                   write-host "Scope: " $log.Authorization.Scope
-                   write-host
-                   write-host " "
-                   }
+                      
 $log=""
 }
 
