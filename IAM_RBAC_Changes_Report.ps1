@@ -15,7 +15,7 @@
 
 
 # This script will retrieve all Azure RBAC Role Assignments in IAM from the Activity Logs for the set amount of days & then provide the information in a user-friendly readable format. 
-# Version 1.1 Updated on 9/20/2023 by MikeO
+# Version 1.1 Updated on 9/20/2023 by MikeO - Added the friendly name lookup for the Role Definition and the cleaned up Entity field 
 
 # Set Amount of days to look back for assignments
 $days=7
@@ -43,7 +43,9 @@ foreach ($Log in $Logs)
 		$RoleDefinitionId=""
 		$RoleDefinitionId=($RoleDefinitionIdFULL.split('/'))[4]				
 		$RoleDefinitionName=""
-		$RoleDefinitionName=(get-azroledefinition -Id $RoleDefinitionId).Name				
+		$RoleDefinitionName=(get-azroledefinition -Id $RoleDefinitionId).Name
+  		# Getting the entity (object) that the pemissions were applied to
+    		$Entity=($nestedproperties.entity.split('/providers/Microsoft.Authorization/roleAssignments/'))[0]
 		# Clearing Variables
                 $Username=""
                 $Groupname=""
@@ -59,7 +61,8 @@ foreach ($Log in $Logs)
                         write-host "Event Initiated by: " $log.Caller
 			write-host "Role Definition Id:" $RoleDefinitionId
 			write-host "Role Definition Name:" $RoleDefinitionName
-                        write-host "Object type given permissions:" $table.Properties.PrincipalType
+   			write-host "Entity:" $Entity
+			write-host "Object type given permissions:" $table.Properties.PrincipalType
                         write-host "Object Id given permissions:" $PrincipalId
                         write-host "User given permissions:" $Username
                         write-host "Scope: " $log.Authorization.Scope
@@ -78,6 +81,7 @@ foreach ($Log in $Logs)
                           write-host "Event Initiated by: " $log.Caller
 			  write-host "Role Definition Id:" $RoleDefinitionId
 			  write-host "Role Definition Name:" $RoleDefinitionName
+     			  write-host "Entity:" $Entity
                           write-host "Object type given permissions:" $table.Properties.PrincipalType
                           write-host "Object Id given permissions:" $PrincipalId
                           write-host "SPN given permissions:" $SPNname
@@ -96,6 +100,7 @@ foreach ($Log in $Logs)
                               write-host "Event Initiated by: " $log.Caller
 			      write-host "Role Definition Id:" $RoleDefinitionId
 			      write-host "Role Definition Name:" $RoleDefinitionName
+	 		      write-host "Entity:" $Entity
                               write-host "Object type given permissions:" $table.Properties.PrincipalType
                               write-host "Object Id given permissions:" $PrincipalId
                               write-host "Group given permissions:" $Groupname
