@@ -26,6 +26,7 @@ connect-azuread
 # Gathering role assignments for set amount of previous days, correlated with object IDs for successful events to avoid confusion
 $SuccessLogs=""
 $Logs=@()
+$RBAC_Change_Log=@()
 $SuccessLogs=Get-AzLog -StartTime (Get-Date).AddDays(-$days) | Where-Object {$_.Authorization.Action -like 'Microsoft.Authorization/roleAssignments/*' `
 -and $_.Status -eq "Succeeded"}  
 foreach ($SuccessLog in $SuccessLogs) 
@@ -56,8 +57,7 @@ foreach ($Log in $Logs)
 		$RoleDefinitionName=(get-azroledefinition -Id $RoleDefinitionId).Name
   		# Getting the entity (object) that the pemissions were applied to
     		$Entity=($nestedproperties.entity.split('/providers/Microsoft.Authorization/roleAssignments/'))[0]
-		$RBAC_Change_Log=@()
-                    if(($table.Properties.PrincipalType -eq "User")) 
+		      if(($table.Properties.PrincipalType -eq "User")) 
                       {
                         # Getting User Info
 			$User=""
@@ -120,10 +120,9 @@ foreach ($Log in $Logs)
 			      "Added_ID_DisplayName" = $Group.DisplayName;
 	                      	}
                 }
-                      
-$log=""
-}
-}
+	}	
+}                      
+
 $RBAC_Change_Log | Select-Object "OperationId","EventTimestamp","OperationName","Status","InitiatedBy_Caller","RoleDefinitionId", `
 "RoleDefinitionName","Entity","Scope","PrincipalType","Added_ID","Added_ID_DisplayName" `
 | Sort-Object "Scope","RoleDefinitionName","PrincipalType","Added_ID_DisplayName" # | Export-CSV $Filename -Notype
