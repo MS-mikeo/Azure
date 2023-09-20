@@ -21,8 +21,14 @@
 $days=7
 # Connecting to Azure AD to lookup users, groups, and SPNs
 connect-azuread
-# Gathering role assignments for set amount of previous days
-$logs=Get-AzLog -StartTime (Get-Date).AddDays(-$days) | Where-Object {$_.Authorization.Action -like 'Microsoft.Authorization/roleAssignments/*'} 
+# Gathering role assignments for set amount of previous days, correlated with object IDs for successful events to avoid confusion
+$SuccessLogs=""
+$Logs=@()
+$SuccessLogs=Get-AzLog -StartTime (Get-Date).AddDays(-$days) | Where-Object {$_.Authorization.Action -like 'Microsoft.Authorization/roleAssignments/*' -and $_.Status -eq "Succeeded"}  
+foreach ($SuccessLog in $SuccessLogs) 
+	{
+	$logs+=Get-AzLog -StartTime (Get-Date).AddDays(-$days) | Where-Object {$_.Authorization.Action -like 'Microsoft.Authorization/roleAssignments/*' -and $_.OperationId -eq $SuccessLog.OperationId} 
+	}
 foreach ($Log in $Logs) 
               {
               # Extracting nested properties -> requestbody to a table to extract Principal ID & Type
