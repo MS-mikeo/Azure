@@ -15,6 +15,7 @@
 
 
 # This script will retrieve all Azure RBAC Role Assignments in IAM from the Activity Logs for the set amount of days & then provide the information in a user-friendly readable format. 
+# Version 1.1 Updated on 9/20/2023 by MikeO
 
 # Set Amount of days to look back for assignments
 $days=7
