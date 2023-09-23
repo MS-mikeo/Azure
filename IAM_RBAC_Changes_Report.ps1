@@ -22,7 +22,7 @@
 #	- Added the friendly name lookup for the Role Definition and the cleaned up Entity field 
 
 # Set Amount of days to look back for assignments
-$days=7
+$days=1
 
 #Setting up array to catch all Output from each loop
 $RBAC_Change_Log=@()
