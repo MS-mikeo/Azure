@@ -23,7 +23,7 @@
 #	- Added the check to correlate successful events & remove entries that do not add value to the reporting
 #	- Added the friendly name lookup for the Role Definition and the cleaned up Entity field 
 #
-# Open Issues: Management Groups Activity Logs are ot able to be queried
+# Open Issues: Management Groups Activity Logs are not able to be queried (10/11/2023)
 
 # Runbook will need the following Powershell Modules installed: Az.Accounts (or Az), Microsoft.Graph.Authentication, Microsoft.Graph.Application, Microsoft.Graph.Users, Microsoft.Graph.Groups
 
