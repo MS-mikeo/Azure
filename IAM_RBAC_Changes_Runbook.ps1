@@ -82,7 +82,7 @@ foreach ($Log in $Logs)
 	        $RoleDefinitionIdFULL=""
 		$RoleDefinitionIdFULL=$table.Properties.RoleDefinitionId
 	        $RoleDefinitionId=""
-	        $RoleDefinitionId=($RoleDefinitionIdFULL.split('/'))[4]				
+	        $RoleDefinitionId=($RoleDefinitionIdFULL -split ('/providers/Microsoft.Authorization/roleDefinitions/'))[1]		
 		$RoleDefinitionName=""
 		$RoleDefinitionName=(get-azroledefinition -Id $RoleDefinitionId).Name
   	        # Getting the entity (object) that the pemissions were applied to
