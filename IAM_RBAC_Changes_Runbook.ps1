@@ -31,7 +31,7 @@
 Disable-AzContextAutosave -Scope Process
 
 # Connect to Azure with user-assigned managed identity
-$AzureContext = (Connect-AzAccount -Identity -AccountId <app id>).context
+$AzureContext = (Connect-AzAccount -Identity -AccountId <User Assigned Managed Identity Client ID>).context
 
 # set and store context
 $AzureContext = Set-AzContext -Subscription <subscription id> -DefaultProfile $AzureContext
