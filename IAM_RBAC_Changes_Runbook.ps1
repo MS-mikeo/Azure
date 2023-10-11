@@ -13,21 +13,35 @@
 #
 # ===========================================================================================
 
-
 # This script will retrieve all Azure RBAC Role Assignments in IAM from the Activity Logs for the set amount of days & then provide the information in a user-friendly readable format. 
-# Version 1.2 Updated on 9/20/2023 by MikeO
-#	- Added loop through all supscriptions that are available to the logged in identity
+# Version 2.0 Updated on 10/11/2023 by MikeO
+#	- Fixed split for Role Definition to account for Custom Roles (10/11/2023)
+#	- Fixed split to get Entity (10/11/2023)
+#	- Migrated commands to use Microsoft Graph Powershell SDK (10/11/2023)
+#	- Added loop through all supscriptions that are available to the logged in identity 
 #	- Removed all write-host and setup output for automation
 #	- Added the check to correlate successful events & remove entries that do not add value to the reporting
 #	- Added the friendly name lookup for the Role Definition and the cleaned up Entity field 
+#
+# Open Issues: Management Groups Activity Logs are ot able to be queried
 
+# Runbook will need the following Powershell Modules installed: Az.Accounts (or Az), Microsoft.Graph.Authentication, Microsoft.Graph.Application, Microsoft.Graph.Users, Microsoft.Graph.Groups
+
+# Ensures you do not inherit an AzContext in your runbook
+Disable-AzContextAutosave -Scope Process
+
+# Connect to Azure with user-assigned managed identity
+$AzureContext = (Connect-AzAccount -Identity -AccountId <app id>).context
+
+# set and store context
+$AzureContext = Set-AzContext -Subscription <subscription id> -DefaultProfile $AzureContext
 
 # Connecting to Azure AD to lookup users, groups, and SPNs
 Connect-MgGraph -Scopes "User.Read.All", "Group.Read.All", "Application.Read.All"
 Connect-AzAccount
 
 # Set Amount of days to look back for assignments
-$days=1
+$days=7
 
 #Setting CSV File name
 $filename="RBAC_Change_Report.csv"
