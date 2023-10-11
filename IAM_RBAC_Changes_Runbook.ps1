@@ -25,6 +25,8 @@
 #
 # Open Issues: Management Groups Activity Logs are not able to be queried (10/11/2023)
 
+# REQUIREMENTS
+# Automation account with User Assigned Managed Identity that has reader permissions in Azure and Entra ID
 # Runbook will need the following Powershell Modules installed: Az.Accounts (or Az), Microsoft.Graph.Authentication, Microsoft.Graph.Application, Microsoft.Graph.Users, Microsoft.Graph.Groups
 
 # Ensures you do not inherit an AzContext in your runbook
