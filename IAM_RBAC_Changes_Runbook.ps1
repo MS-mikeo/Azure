@@ -66,7 +66,7 @@ foreach ($SuccessLog in $SuccessLogs)
 	$logs+=Get-AzLog -StartTime (Get-Date).AddDays(-$days) | Where-Object {$_.Authorization.Action -like 'Microsoft.Authorization/roleAssignments/*' `
  	-and $_.OperationId -eq $SuccessLog.OperationId -and $_.Status -ne "Succeeded"} 
 	}
-foreach ($Log in $Logs) 
+	foreach ($Log in $Logs) 
               {
               # Extracting nested properties -> requestbody to a table to extract Principal ID & Type
               $nestedproperties=""
