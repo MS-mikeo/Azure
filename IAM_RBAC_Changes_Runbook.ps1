@@ -64,16 +64,16 @@ foreach ($Log in $Logs)
                 # Getting Principal Id
                 $PrincipalId=""
                 $PrincipalId=$table.Properties.PrincipalId
-		            #Getting Role Definition ID and Name in friendly format
-		            $RoleDefinitionIdFULL=""
-		            $RoleDefinitionIdFULL=$table.Properties.RoleDefinitionId
+	        #Getting Role Definition ID and Name in friendly format
+	        $RoleDefinitionIdFULL=""
+		$RoleDefinitionIdFULL=$table.Properties.RoleDefinitionId
 		            $RoleDefinitionId=""
 		            $RoleDefinitionId=($RoleDefinitionIdFULL.split('/'))[4]				
 		            $RoleDefinitionName=""
 		            $RoleDefinitionName=(get-azroledefinition -Id $RoleDefinitionId).Name
   		          # Getting the entity (object) that the pemissions were applied to
-    		        $Entity=($nestedproperties.entity -split ('/providers/Microsoft.Authorization/roleAssignments/'))[0]
-                if(($table.Properties.PrincipalType -eq "User")) 
+    		          $Entity=($nestedproperties.entity -split ('/providers/Microsoft.Authorization/roleAssignments/'))[0]
+                        if(($table.Properties.PrincipalType -eq "User")) 
                       {
                       # Getting User Info
 			                $User=""
