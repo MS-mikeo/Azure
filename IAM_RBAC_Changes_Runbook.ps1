@@ -67,76 +67,76 @@ foreach ($Log in $Logs)
 	        #Getting Role Definition ID and Name in friendly format
 	        $RoleDefinitionIdFULL=""
 		$RoleDefinitionIdFULL=$table.Properties.RoleDefinitionId
-		            $RoleDefinitionId=""
-		            $RoleDefinitionId=($RoleDefinitionIdFULL.split('/'))[4]				
-		            $RoleDefinitionName=""
-		            $RoleDefinitionName=(get-azroledefinition -Id $RoleDefinitionId).Name
-  		          # Getting the entity (object) that the pemissions were applied to
-    		          $Entity=($nestedproperties.entity -split ('/providers/Microsoft.Authorization/roleAssignments/'))[0]
-                        if(($table.Properties.PrincipalType -eq "User")) 
+	        $RoleDefinitionId=""
+	        $RoleDefinitionId=($RoleDefinitionIdFULL.split('/'))[4]				
+		$RoleDefinitionName=""
+		$RoleDefinitionName=(get-azroledefinition -Id $RoleDefinitionId).Name
+  	        # Getting the entity (object) that the pemissions were applied to
+    		$Entity=($nestedproperties.entity -split ('/providers/Microsoft.Authorization/roleAssignments/'))[0]
+                if(($table.Properties.PrincipalType -eq "User")) 
                       {
                       # Getting User Info
-			                $User=""
+		      $User=""
                       $User=get-mguser -userid $PrincipalId
                       # Output
                       $RBAC_Change_Log += New-Object PSCustomObject -Property @{
-                	    "OperationId" = $log.OperationId;
-               		    "EventTimestamp" = $log.EventTimestamp;
-		 	                "OperationName" = $log.OperationName;
-    			            "Status" = $log.Status;
-       			          "InitiatedBy_Caller" = $log.Caller;
-	  		              "RoleDefinitionId" = $RoleDefinitionId;
-	 		                "RoleDefinitionName" = $RoleDefinitionName;	
-	  		              "Entity" = $Entity;
+                      "OperationId" = $log.OperationId;
+               	      "EventTimestamp" = $log.EventTimestamp;
+		      "OperationName" = $log.OperationName;
+    		      "Status" = $log.Status;
+       		      "InitiatedBy_Caller" = $log.Caller;
+	  	      "RoleDefinitionId" = $RoleDefinitionId;
+	 	      "RoleDefinitionName" = $RoleDefinitionName;	
+	  	      "Entity" = $Entity;
                       "Scope" = $log.Authorization.Scope;
-     			            "PrincipalType" = $table.Properties.PrincipalType;
-			                "Added_ID" = $User.UserPrincipalName;
-			                "Added_ID_DisplayName" = $User.DisplayName;
-               			  }
-                        }  
+     		      "PrincipalType" = $table.Properties.PrincipalType;
+		      "Added_ID" = $User.UserPrincipalName;
+		      "Added_ID_DisplayName" = $User.DisplayName;
+               	       }
+                       }  
                           if(($table.Properties.PrincipalType -eq "ServicePrincipal"))
-                          {                
-                          # Getting SPN Info                        
-                          $SPN=""
-                          $SPN=Get-MGServicePrincipal -ServicePrincipalId $PrincipalId
-                          # Output
-                          $RBAC_Change_Log += New-Object PSCustomObject -Property @{
-                	        "OperationId" = $log.OperationId;
+                          	{                
+                          	# Getting SPN Info                        
+                          	$SPN=""
+                          	$SPN=Get-MGServicePrincipal -ServicePrincipalId $PrincipalId
+                          	# Output
+                		$RBAC_Change_Log += New-Object PSCustomObject -Property @{
+                		"OperationId" = $log.OperationId;
                		        "EventTimestamp" = $log.EventTimestamp;
-		 	                    "OperationName" = $log.OperationName;
-    			                "Status" = $log.Status;
-       			              "InitiatedBy_Caller" = $log.Caller;
-	    		                "RoleDefinitionId" = $RoleDefinitionId;
-	 		                    "RoleDefinitionName" = $RoleDefinitionName;	
-	  		                  "Entity" = $Entity;
-                          "Scope" = $log.Authorization.Scope;
-     			                "PrincipalType" = $table.Properties.PrincipalType;
-			                    "Added_ID" = $SPN.Id;
-			                    "Added_ID_DisplayName" = $SPN.DisplayName;
-     			  	            }
-                            }
-                              if(($table.Properties.PrincipalType -eq "Group"))
-                              {                
-                              # Getting Group Info
-                              $Group=""
-                              $Group=get-mggroup -groupid $PrincipalId
-                              # Output
-                              $RBAC_Change_Log += New-Object PSCustomObject -Property @{
-                	          "OperationId" = $log.OperationId;
-               		          "EventTimestamp" = $log.EventTimestamp;
-		 	                      "OperationName" = $log.OperationName;
-    			                  "Status" = $log.Status;
-       			                "InitiatedBy_Caller" = $log.Caller;
-	    		                  "RoleDefinitionId" = $RoleDefinitionId;
-	 		                      "RoleDefinitionName" = $RoleDefinitionName;	
-	  		                    "Entity" = $Entity;
-                            "Scope" = $log.Authorization.Scope;
-     			                  "PrincipalType" = $table.Properties.PrincipalType;
-			                      "Added_ID" = $Group.Id;
-			                      "Added_ID_DisplayName" = $Group.DisplayName;
-	                      	  }
-                         }
-	                    }
+		 	        "OperationName" = $log.OperationName;
+    			        "Status" = $log.Status;
+       			        "InitiatedBy_Caller" = $log.Caller;
+	    		        "RoleDefinitionId" = $RoleDefinitionId;
+	 		        "RoleDefinitionName" = $RoleDefinitionName;	
+	  		        "Entity" = $Entity;
+                         	"Scope" = $log.Authorization.Scope;
+     			        "PrincipalType" = $table.Properties.PrincipalType;
+			        "Added_ID" = $SPN.Id;
+			        "Added_ID_DisplayName" = $SPN.DisplayName;
+     			  	}
+                                }
+                                	if(($table.Properties.PrincipalType -eq "Group"))
+                              			{                
+                              			# Getting Group Info
+                              			$Group=""
+                              			$Group=get-mggroup -groupid $PrincipalId
+                              			# Output
+                             			$RBAC_Change_Log += New-Object PSCustomObject -Property @{
+                	         		"OperationId" = $log.OperationId;
+               		         		"EventTimestamp" = $log.EventTimestamp;
+		 	                        "OperationName" = $log.OperationName;
+    			                  	"Status" = $log.Status;
+       			                	"InitiatedBy_Caller" = $log.Caller;
+	    		                  	"RoleDefinitionId" = $RoleDefinitionId;
+	 		                        "RoleDefinitionName" = $RoleDefinitionName;	
+	  		                        "Entity" = $Entity;
+                            			"Scope" = $log.Authorization.Scope;
+     			                  	"PrincipalType" = $table.Properties.PrincipalType;
+			                        "Added_ID" = $Group.Id;
+			                        "Added_ID_DisplayName" = $Group.DisplayName;
+	                      	                }
+                               }
+	                }
            }
 }                      
 
