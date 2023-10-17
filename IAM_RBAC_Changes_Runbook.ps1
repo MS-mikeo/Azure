@@ -39,7 +39,7 @@ $AzureContext = (Connect-AzAccount -Identity -AccountId <User Assigned Managed I
 $AzureContext = Set-AzContext -Subscription <subscription id> -DefaultProfile $AzureContext
 
 # Connecting to Azure AD to lookup users, groups, and SPNs
-Connect-MgGraph -Scopes "User.Read.All", "Group.Read.All", "Application.Read.All"
+Connect-MgGraph -Identity -ClientId <User Assigned Managed Identity Client ID>
 Connect-AzAccount
 
 # Set Amount of days to look back for assignments
