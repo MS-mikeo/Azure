@@ -1,3 +1,8 @@
+# Changes needed before finished:
+# 1.) Update all Subscription IDs to have Subscription name in any GENERAL and COMPUTE exports
+# 2.) Add Advisor and Orphan resources export (and any other beneficial ones - empty app service plans that are not serverless)
+# 3.) Review/update beginning logic for module/folder checks
+
 Install-Module -Name Az.ResourceGraph
 
 #Date
@@ -219,21 +224,43 @@ $COMPUTE_appServicePlanDetails_Query=Search-AzGraph -Query "resources | where ty
 | project planId, name, skuname, skutier, location, workers, maxworkers, resourceGroupName, subscriptionName, PredictiveAutoscale, AutoScaleProfiles, tags"
 foreach ($item in $COMPUTE_appServicePlanDetails_Query) {
     $COMPUTE_appServicePlanDetails = New-Object PSObject -Property @{
-        planId            = $item.planId;             
-        name             = $item.name;
-        skuname              = $item.skuname;
+        planId              = $item.planId;             
+        name                = $item.name;
+        skuname             = $item.skuname;
         skutier             = $item.skutier;
-        location           = $item.location;
+        location            = $item.location;
         workers             = $item.workers;
         maxworkers          = $item.maxworkers;
-        resourceGroupName  = $item.resourceGroupName;
-        subscriptionName   = $item.subscriptionName;
+        resourceGroupName   = $item.resourceGroupName;
+        subscriptionName    = $item.subscriptionName;
         PredictiveAutoscale = $item.PredictiveAutoscale; 
         AutoScaleProfiles   = $item.AutoScaleProfiles; 
-        tags               = $item.tags;                     
+        tags                = $item.tags;                     
         }
     $COMPUTE_appServicePlanDetails | select-object "planId", "name", "skuname", "skutier", "location", "workers", "maxworkers", "resourceGroupName", "subscriptionName", "PredictiveAutoscale", "AutoScaleProfiles", "tags" | Export-CSV "$OutputFolder\COMPUTE_allAppServicePlans.csv"  -Append -NoTypeInformation
 
 # Had to remove "| join kind = inner (resources | where type == 'microsoft.web/serverfarms' | extend id=tolower(tostring(id)) | distinct id) on '$left.planId' == '$right.id" after "| project planId = tolower(tostring(properties.targetResourceUri)), PredictiveAutoscale = properties.predictiveAutoscalePolicy.scaleMode, AutoScaleProfiles = properties.profiles) on planId"
 # Noting in case this causes an unforeseen issue later, but not seeing why it is needed.
 }
+
+
+
+#new merge!!!
+resources
+| where type =~ 'Microsoft.Web/sites'
+| extend AppServicePlanId=tostring(properties.serverFarmId), AppName=tostring(properties.name),AppSku=tostring(properties.sku), kind, Status=tostring(properties.state), location, subscriptionId
+| extend AppServicePlanName = tostring(split(AppServicePlanId,'/Microsoft.Web/serverfarms/')[1])
+| extend resourceGroup = tostring(split(id,'/resourceGroups/')[1])
+| extend resourceGroupName = tostring(split(resourceGroup,'/')[0])
+| join kind=inner (
+    resourcecontainers
+    | where type == 'microsoft.resources/subscriptions'
+    | project subscriptionId, subscriptionName = name)
+    on subscriptionId    
+| project AppName, AppSku, kind, Status, resourceGroupName, subscriptionName, AppServicePlanName, AppServicePlanId, tags
+| join kind = leftouter (
+    resources
+    | where type == "microsoft.web/serverfarms")
+on $left.AppServicePlanId == $right.id
+
+
