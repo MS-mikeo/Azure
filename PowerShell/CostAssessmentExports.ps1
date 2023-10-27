@@ -186,6 +186,54 @@ foreach ($item in $COMPUTE_webFunctionStatus_Query) {
 }
 
 
+# Compute Page -> webFunctionStatusQuery-TOUCHED_UP_allWebApps
+$COMPUTE_webFunctionStatus_Query = Search-AzGraph -Query "resources | where type =~ 'Microsoft.Web/sites' `
+| extend AppServicePlanId=tostring(properties.serverFarmId), AppName=tostring(properties.name),AppSku=tostring(properties.sku), `
+kind, Status=tostring(properties.state), location, subscriptionId | extend AppServicePlanName = tostring(split(AppServicePlanId,'/Microsoft.Web/serverfarms/')[1]) `
+| extend resourceGroup = tostring(split(id,'/resourceGroups/')[1]) | extend resourceGroupName = tostring(split(resourceGroup,'/')[0]) `
+| join kind=inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId `   
+| project AppName, AppSku, kind, Status, location, resourceGroupName, subscriptionName, AppServicePlanName, AppServicePlanId, tags"
+foreach ($item in $COMPUTE_webFunctionStatus_Query) {
+    $COMPUTE_webFunctionStatus = New-Object PSObject -Property @{
+        AppName            = $item.AppName;             
+        AppSku             = $item.AppSku;
+        kind               = $item.kind;
+        Status             = $item.Status;
+        location           = $item.location;
+        resourceGroupName  = $item.resourceGroupName;
+        subscriptionName   = $item.subscriptionName;
+        AppServicePlanName = $item.AppServicePlanName; 
+        AppServicePlanId   = $item.AppServicePlanId; 
+        tags               = $item.tags;                     
+        }
+    $COMPUTE_webFunctionStatus | select-object "AppName", "AppSku", "kind", "Status", "location", "resourceGroupName", "subscriptionName", "AppServicePlanName", "AppServicePlanId", "tags" | Export-CSV "$OutputFolder\COMPUTE_allWebApps.csv"  -Append -NoTypeInformation
+}
 
+# Compute Page -> appServicePlanDetailsQuery-TOUCHED_UP_allAppServicePlans
+$COMPUTE_appServicePlanDetails_Query=Search-AzGraph -Query "resources | where type == 'microsoft.web/serverfarms'  `
+| extend  planId = tolower(tostring(id)), skuname = tostring(sku.name), skutier = tostring(sku.tier), workers = tostring(properties.numberOfWorkers), maxworkers = tostring(properties.maximumNumberOfWorkers) `
+| join kind = leftouter (resources | where type == 'microsoft.insights/autoscalesettings' `
+| project planId = tolower(tostring(properties.targetResourceUri)), PredictiveAutoscale = properties.predictiveAutoscalePolicy.scaleMode, AutoScaleProfiles = properties.profiles) on planId `
+| join kind = inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId `
+| extend resourceGroup = tostring(split(id,'/resourceGroups/')[1]) | extend resourceGroupName = tostring(split(resourceGroup,'/')[0]) | project-away id, planId1 `
+| project planId, name, skuname, skutier, location, workers, maxworkers, resourceGroupName, subscriptionName, PredictiveAutoscale, AutoScaleProfiles, tags"
+foreach ($item in $COMPUTE_appServicePlanDetails_Query) {
+    $COMPUTE_appServicePlanDetails = New-Object PSObject -Property @{
+        planId            = $item.planId;             
+        name             = $item.name;
+        skuname              = $item.skuname;
+        skutier             = $item.skutier;
+        location           = $item.location;
+        workers             = $item.workers;
+        maxworkers          = $item.maxworkers;
+        resourceGroupName  = $item.resourceGroupName;
+        subscriptionName   = $item.subscriptionName;
+        PredictiveAutoscale = $item.PredictiveAutoscale; 
+        AutoScaleProfiles   = $item.AutoScaleProfiles; 
+        tags               = $item.tags;                     
+        }
+    $COMPUTE_appServicePlanDetails | select-object "planId", "name", "skuname", "skutier", "location", "workers", "maxworkers", "resourceGroupName", "subscriptionName", "PredictiveAutoscale", "AutoScaleProfiles", "tags" | Export-CSV "$OutputFolder\COMPUTE_allAppServicePlans.csv"  -Append -NoTypeInformation
 
-
+# Had to remove "| join kind = inner (resources | where type == 'microsoft.web/serverfarms' | extend id=tolower(tostring(id)) | distinct id) on '$left.planId' == '$right.id" after "| project planId = tolower(tostring(properties.targetResourceUri)), PredictiveAutoscale = properties.predictiveAutoscalePolicy.scaleMode, AutoScaleProfiles = properties.profiles) on planId"
+# Noting in case this causes an unforeseen issue later, but not seeing why it is needed.
+}
