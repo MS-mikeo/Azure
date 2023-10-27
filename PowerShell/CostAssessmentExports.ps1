@@ -242,25 +242,3 @@ foreach ($item in $COMPUTE_appServicePlanDetails_Query) {
 # Had to remove "| join kind = inner (resources | where type == 'microsoft.web/serverfarms' | extend id=tolower(tostring(id)) | distinct id) on '$left.planId' == '$right.id" after "| project planId = tolower(tostring(properties.targetResourceUri)), PredictiveAutoscale = properties.predictiveAutoscalePolicy.scaleMode, AutoScaleProfiles = properties.profiles) on planId"
 # Noting in case this causes an unforeseen issue later, but not seeing why it is needed.
 }
-
-
-
-#new merge!!!
-resources
-| where type =~ 'Microsoft.Web/sites'
-| extend AppServicePlanId=tostring(properties.serverFarmId), AppName=tostring(properties.name),AppSku=tostring(properties.sku), kind, Status=tostring(properties.state), location, subscriptionId
-| extend AppServicePlanName = tostring(split(AppServicePlanId,'/Microsoft.Web/serverfarms/')[1])
-| extend resourceGroup = tostring(split(id,'/resourceGroups/')[1])
-| extend resourceGroupName = tostring(split(resourceGroup,'/')[0])
-| join kind=inner (
-    resourcecontainers
-    | where type == 'microsoft.resources/subscriptions'
-    | project subscriptionId, subscriptionName = name)
-    on subscriptionId    
-| project AppName, AppSku, kind, Status, resourceGroupName, subscriptionName, AppServicePlanName, AppServicePlanId, tags
-| join kind = leftouter (
-    resources
-    | where type == "microsoft.web/serverfarms")
-on $left.AppServicePlanId == $right.id
-
-
