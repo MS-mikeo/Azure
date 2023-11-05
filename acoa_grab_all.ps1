@@ -2,6 +2,7 @@
 # 1.) Update all Subscription IDs to have Subscription name in any GENERAL and COMPUTE exports
 # 2.) Add Advisor and Orphan resources export (and any other beneficial ones - empty app service plans that are not serverless)
 # 3.) Review/update beginning logic for module/folder checks
+# 4.) Add actual time to folder and run check before deleting to get rid of error
 
 $moduleName = "Az.Accounts"
 if (!(Get-Module -ListAvailable -Name $moduleName)) {
@@ -33,6 +34,7 @@ mkdir -p $OutputFolder\WorkbookOutput\General
 mkdir -p $OutputFolder\WorkbookOutput\Compute
 #AHUB Placeholder
 mkdir -p $OutputFolder\WorkbookOutput\Storage
+mkdir -p $OutputFolder\WorkbookOutput\Networking
 
 ############################################################
 ####################### GENERAL PAGE #######################
@@ -454,3 +456,109 @@ foreach ($item in $STORAGE_Snapshots_using_premium_storage_Query) {
     $STORAGE_Snapshots_using_premium_storage | select-object "id", "subscriptionId", "subscriptionName", "resourceGroup", "snapshotName", "location", "timeCreated", "skuName", "skuTier", "diskSizeInGB", "sourceResourceId", "sourceResourceDiskName", "tags" `
     | Export-CSV "$OutputFolder\WorkbookOutput\Storage\STORAGE_Snapshots_using_premium_storage.csv"  -Append -NoTypeInformation
 }
+
+$STORAGE_Snapshots_Orphaned_Query = Search-AzGraph -Query "
+resources 
+| where type == 'microsoft.compute/snapshots' 
+| extend TimeCreated = properties.timeCreated 
+| extend snapshotName = tostring(split(id,'/providers/Microsoft.Compute/snapshots/')[1]) 
+| extend sourceResourceId = tostring(properties.creationData.sourceResourceId)
+| extend sourceResourceDiskName = tostring(split(sourceResourceId,'/providers/Microsoft.Compute/disks/')[1]) 
+| join kind=fullouter    (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId 
+| order by id asc | project id, subscriptionId, subscriptionName, resourceGroup, snapshotName, location, TimeCreated, skuName=sku.name, skuTier=sku.tier, diskSizeInGB=properties.diskSizeGB, sourceResourceId, sourceResourceDiskName, tags
+|join  kind=fullouter  (resources
+| where type =~ 'microsoft.compute/disks'
+| join kind=inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' 
+| project subscriptionId, subscriptionName = name) on subscriptionId 
+| extend sourceResourceId = tostring(id)
+| extend id = tolower(id)
+| extend resourceGroupName = tostring(split(resourceGroup,'/resourcegroups/')[1]) 
+| extend diskName = tostring(split(id,'/providers/microsoft.compute/disks/')[1]) 
+| project id, subscriptionId,  resourceGroup, diskName, diskSizeInGB=properties.diskSizeGB, skuName=sku.name, skuTier=sku.tier, location, timeCreated=properties.timeCreated, tags, sourceResourceId) on sourceResourceId
+| where id != '' and sourceResourceId1 == '' 
+| project id, subscriptionId, subscriptionName, resourceGroup, snapshotName, location, TimeCreated, skuName, skuTier, diskSizeInGB, sourceResourceId, sourceResourceDiskName, tags
+"
+foreach ($item in $STORAGE_Snapshots_Orphaned_Query) {
+    $STORAGE_Snapshots_Orphaned = New-Object PSObject -Property @{
+        id                     = $item.id;         
+        subscriptionId         = $item.subscriptionId;
+        subscriptionName       = $item.subscriptionName;
+        resourceGroup          = $item.resourceGroup;  
+        snapshotName           = $item.snapshotName; 
+        location               = $item.location; 
+        timeCreated            = $item.timeCreated;     
+        skuName                = $item.skuName;
+        skuTier                = $item.skuTier;          
+        diskSizeInGB           = $item.diskSizeInGB;       
+        sourceResourceId       = $item.sourceResourceId; 
+        sourceResourceDiskName = $item.sourceResourceDiskName;
+        tags                   = $item.tags;                       
+        }
+    $STORAGE_Snapshots_Orphaned | select-object "id", "subscriptionId", "subscriptionName", "resourceGroup", "snapshotName", "location", "timeCreated", "skuName", "skuTier", "diskSizeInGB", "sourceResourceId", "sourceResourceDiskName", "tags" `
+    | Export-CSV "$OutputFolder\WorkbookOutput\Storage\STORAGE_Snapshots_Orphaned.csv"  -Append -NoTypeInformation
+}
+
+# STORAGE Page -> All_Managed_Disks
+$STORAGE_Disks_ALL_Query = Search-AzGraph -Query "
+resources 
+| where type =~ 'microsoft.compute/disks'
+| join kind=inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' 
+| project subscriptionId, subscriptionName = name) on subscriptionId 
+| extend id = tolower(id)
+| extend resourceGroupName = tostring(split(resourceGroup,'/resourcegroups/')[1]) 
+| extend diskName = tostring(split(id,'/providers/microsoft.compute/disks/')[1]) 
+| project id, subscriptionId,  resourceGroup, diskName, diskSizeInGB=properties.diskSizeGB, skuName=sku.name, skuTier=sku.tier, location, timeCreated=properties.timeCreated, tags
+"
+foreach ($item in $STORAGE_Disks_ALL_Query) {
+    $STORAGE_Disks_ALL = New-Object PSObject -Property @{
+        id                 = $item.id;         
+        subscriptionId     = $item.subscriptionId;
+        subscriptionName   = $item.subscriptionName;
+        resourceGroupName  = $item.resourceGroupName;  
+        diskName           = $item.diskName;          
+        diskSizeInGB       = $item.diskSizeInGB;
+        skuName            = $item.skuName;
+        skuTier            = $item.skuTier;          
+        location           = $item.location;       
+        timeCreated        = $item.timeCreated;  
+        timeDetached       = $item.timeDetached;
+        tags               = $item.tags;                       
+        }
+    $STORAGE_Disks_ALL | select-object "id", "subscriptionId", "subscriptionName", "resourceGroupName", "diskName", "diskSizeInGB", "skuName", "skuTier", "location", "timeCreated", "timeDetached", "tags" `
+    | Export-CSV "$OutputFolder\WorkbookOutput\Storage\STORAGE_Disks_ALL.csv"  -Append -NoTypeInformation
+}
+
+# STORAGE Page -> All Snapshots
+$STORAGE_Snapshots_ALL_Query = Search-AzGraph -Query "
+resources 
+| where type == 'microsoft.compute/snapshots' 
+| extend TimeCreated = properties.timeCreated 
+| extend snapshotName = tostring(split(id,'/providers/Microsoft.Compute/snapshots/')[1]) 
+| extend sourceResourceId = properties.creationData.sourceResourceId 
+| extend sourceResourceDiskName = tostring(split(sourceResourceId,'/providers/Microsoft.Compute/disks/')[1]) 
+| join kind=inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId 
+| order by id asc | project id, subscriptionId, subscriptionName, resourceGroup, snapshotName, location, TimeCreated, skuName=sku.name, skuTier=sku.tier, diskSizeInGB=properties.diskSizeGB, sourceResourceId, sourceResourceDiskName, tags
+"
+foreach ($item in $STORAGE_Snapshots_ALL_Query) {
+    $STORAGE_Snapshots_ALL = New-Object PSObject -Property @{
+        id                     = $item.id;         
+        subscriptionId         = $item.subscriptionId;
+        subscriptionName       = $item.subscriptionName;
+        resourceGroup          = $item.resourceGroup;  
+        snapshotName           = $item.snapshotName; 
+        location               = $item.location; 
+        timeCreated            = $item.timeCreated;     
+        skuName                = $item.skuName;
+        skuTier                = $item.skuTier;          
+        diskSizeInGB           = $item.diskSizeInGB;       
+        sourceResourceId       = $item.sourceResourceId; 
+        sourceResourceDiskName = $item.sourceResourceDiskName;
+        tags                   = $item.tags;                       
+        }
+    $STORAGE_Snapshots_ALL| select-object "id", "subscriptionId", "subscriptionName", "resourceGroup", "snapshotName", "location", "timeCreated", "skuName", "skuTier", "diskSizeInGB", "sourceResourceId", "sourceResourceDiskName", "tags" `
+    | Export-CSV "$OutputFolder\WorkbookOutput\Storage\STORAGE_Snapshots_ALL.csv"  -Append -NoTypeInformation
+}
+
+############################################################
+#################### Networking PAGE #######################
+############################################################
