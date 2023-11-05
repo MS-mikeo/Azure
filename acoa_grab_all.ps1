@@ -1,9 +1,23 @@
-﻿# Changes needed before finished:
+# Changes needed before finished:
 # 1.) Update all Subscription IDs to have Subscription name in any GENERAL and COMPUTE exports
 # 2.) Add Advisor and Orphan resources export (and any other beneficial ones - empty app service plans that are not serverless)
 # 3.) Review/update beginning logic for module/folder checks
 
-Install-Module -Name Az.ResourceGraph
+$moduleName = "Az.Accounts"
+if (!(Get-Module -ListAvailable -Name $moduleName)) {
+    Install-Module -Name $moduleName 
+}
+$moduleName = "Az.ResourceGraph"
+if (!(Get-Module -ListAvailable -Name $moduleName)) {
+    Install-Module -Name $moduleName 
+}
+
+Import-module Az.Accounts
+
+Import-module Az.ResourceGraph
+
+Connect-AzAccount
+
 
 #Date
 $Date=Get-Date -UFormat "%Y-%m-%d" 
@@ -398,7 +412,7 @@ foreach ($item in $STORAGE_getOldSnapshots_Query) {
         id                     = $item.id;         
         subscriptionId         = $item.subscriptionId;
         subscriptionName       = $item.subscriptionName;
-        resourceGroupName      = $item.resourceGroupName;  
+        resourceGroup          = $item.resourceGroup;  
         snapshotName           = $item.snapshotName; 
         location               = $item.location; 
         timeCreated            = $item.timeCreated;     
@@ -409,12 +423,34 @@ foreach ($item in $STORAGE_getOldSnapshots_Query) {
         sourceResourceDiskName = $item.sourceResourceDiskName;
         tags                   = $item.tags;                       
         }
-    $STORAGE_getOldSnapshots | select-object "id", "subscriptionId", "subscriptionName", "resourceGroupName", "snapshotName", "location", "timeCreated", "skuName", "skuTier", "diskSizeInGB", "sourceResourceId", "sourceResourceDiskName", "tags" `
+    $STORAGE_getOldSnapshots | select-object "id", "subscriptionId", "subscriptionName", "resourceGroup", "snapshotName", "location", "timeCreated", "skuName", "skuTier", "diskSizeInGB", "sourceResourceId", "sourceResourceDiskName", "tags" `
     | Export-CSV "$OutputFolder\WorkbookOutput\Storage\STORAGE_diskSnapshots_olderthan30days.csv"  -Append -NoTypeInformation
 
-# Needs further testing, no old snapshots in dev env
+# Needs further testing, no old snapshots in dev env, will be able to test towards 12/2023 - MO
 
 }
 
-#Finish Storage Snapshots
-
+# STORAGE Page -> Snapshots_using_premium_storage-TOUCHED_UP
+$STORAGE_Snapshots_using_premium_storage_Query = Search-AzGraph -Query "resources | where type == 'microsoft.compute/snapshots' | extend TimeCreated = properties.timeCreated | extend snapshotName = tostring(split(id,'/providers/Microsoft.Compute/snapshots/')[1]) `
+| extend sourceResourceId = properties.creationData.sourceResourceId | extend sourceResourceDiskName = tostring(split(sourceResourceId,'/providers/Microsoft.Compute/disks/')[1]) | where sku.name contains 'Premium' `
+| join kind=inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId `
+| order by id asc | project id, subscriptionId, subscriptionName, resourceGroup, snapshotName, location, TimeCreated, skuName=sku.name, skuTier=sku.tier, diskSizeInGB=properties.diskSizeGB, sourceResourceId, sourceResourceDiskName, tags"
+foreach ($item in $STORAGE_Snapshots_using_premium_storage_Query) {
+    $STORAGE_Snapshots_using_premium_storage = New-Object PSObject -Property @{
+        id                     = $item.id;         
+        subscriptionId         = $item.subscriptionId;
+        subscriptionName       = $item.subscriptionName;
+        resourceGroup          = $item.resourceGroup;  
+        snapshotName           = $item.snapshotName; 
+        location               = $item.location; 
+        timeCreated            = $item.timeCreated;     
+        skuName                = $item.skuName;
+        skuTier                = $item.skuTier;          
+        diskSizeInGB           = $item.diskSizeInGB;       
+        sourceResourceId       = $item.sourceResourceId; 
+        sourceResourceDiskName = $item.sourceResourceDiskName;
+        tags                   = $item.tags;                       
+        }
+    $STORAGE_Snapshots_using_premium_storage | select-object "id", "subscriptionId", "subscriptionName", "resourceGroup", "snapshotName", "location", "timeCreated", "skuName", "skuTier", "diskSizeInGB", "sourceResourceId", "sourceResourceDiskName", "tags" `
+    | Export-CSV "$OutputFolder\WorkbookOutput\Storage\STORAGE_Snapshots_using_premium_storage.csv"  -Append -NoTypeInformation
+}
