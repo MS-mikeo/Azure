@@ -3,6 +3,7 @@
 # 2.) Add Advisor and Orphan resources export (and any other beneficial ones - empty app service plans that are not serverless)
 # 3.) Review/update beginning logic for module/folder checks
 # 4.) Add actual time to folder and run check before deleting to get rid of error
+# 5.) NETWORKING SECTION: Firewall, VNG, and Front Door Metrics - review for powershell
 
 $moduleName = "Az.Accounts"
 if (!(Get-Module -ListAvailable -Name $moduleName)) {
@@ -35,6 +36,8 @@ mkdir -p $OutputFolder\WorkbookOutput\Compute
 #AHUB Placeholder
 mkdir -p $OutputFolder\WorkbookOutput\Storage
 mkdir -p $OutputFolder\WorkbookOutput\Networking
+mkdir -p $OutputFolder\WorkbookOutput\Monitoring
+mkdir -p $OutputFolder\WorkbookOutput\Monitoring\Workspaces_Usage
 
 ############################################################
 ####################### GENERAL PAGE #######################
@@ -562,3 +565,144 @@ foreach ($item in $STORAGE_Snapshots_ALL_Query) {
 ############################################################
 #################### Networking PAGE #######################
 ############################################################
+
+# Networking Page -> App Gateways with empty backends
+$NETWORKING_AppGateway_Empty_Backend_Query = Search-AzGraph -Query "
+resources
+| where type =~ 'Microsoft.Network/applicationGateways'
+| extend backendPoolsCount = array_length(properties.backendAddressPools), SKUName = tostring(properties.sku.name), SKUTier = tostring(properties.sku.tier),SKUCapacity = properties.sku.capacity, backendPools = properties.backendAddressPools , AppGwId = tostring(id)
+| project AppGwId, resourceGroup, subscriptionId, SKUName, SKUTier, SKUCapacity, location, tags
+| join (
+    resources
+    | where type =~ 'Microsoft.Network/applicationGateways'
+    | mvexpand backendPools = properties.backendAddressPools
+    | extend backendIPCount = array_length(backendPools.properties.backendIPConfigurations)
+    | extend backendAddressesCount = array_length(backendPools.properties.backendAddresses)
+    | extend backendPoolName  = backendPools.properties.backendAddressPools.name
+    | extend AppGwId = tostring(id)
+    | summarize backendIPCount = sum(backendIPCount), backendAddressesCount=sum(backendAddressesCount) by AppGwId
+) on AppGwId
+| project-away AppGwId1
+| where  (backendIPCount == 0 or isempty(backendIPCount)) and (backendAddressesCount==0 or isempty(backendAddressesCount))
+| extend AppGwName = tostring(split(AppGwId,'providers/Microsoft.Network/applicationGateways/')[1]) 
+| join kind=inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId 
+| order by AppGwId asc
+| project AppGwId, AppGwName, SKUName, SKUTier, SKUCapacity, backendIPCount, backendAddressesCount, location, resourceGroup, subscriptionName, subscriptionId, tags
+"
+foreach ($item in $NETWORKING_AppGateway_Empty_Backend_Query) {
+    $NETWORKING_AppGateway_Empty_Backend = New-Object PSObject -Property @{
+        AppGwId                = $item.AppGwId;         
+        AppGwName              = $item.AppGwName;
+        SKUName                = $item.SKUName;
+        SKUTier                = $item.SKUTier;
+        SKUCapacity            = $item.SKUCapacity;
+        backendIPCount         = $item.backendIPCount;
+        backendAddressesCount  = $item.backendAddressesCount;
+        location               = $item.location; 
+        resourceGroup          = $item.resourceGroup;  
+        subscriptionName       = $item.subscriptionName; 
+        subscriptionId         = $item.subscriptionId;         
+        tags                   = $item.tags;                       
+        }
+    $NETWORKING_AppGateway_Empty_Backend | select-object "AppGwId", "AppGwName", "SKUName", "SKUTier", "SKUCapacity", "backendIPCount", "backendAddressesCount", "location", "resourceGroup", "subscriptionName", "subscriptionId", "tags" `
+    | Export-CSV "$OutputFolder\WorkbookOutput\Networking\NETWORKING_AppGateway_Empty_Backend.csv"  -Append -NoTypeInformation
+}
+
+# Networking Page -> Load Balancer with empty backends
+$NETWORKING_LoadBalancer_Empty_Backend_Query = Search-AzGraph -Query "
+resources
+| where type =~ 'microsoft.network/loadbalancers'
+| where tostring(properties.backendAddressPools) == '[]' 
+| join kind=inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId 
+| project LB_Id = id, LB_Name = name, SKUName = tostring(sku.name), SKUTier = tostring(sku.tier), location, resourceGroup, subscriptionName, subscriptionId, tags
+| order by LB_Id asc
+"
+foreach ($item in $NETWORKING_LoadBalancer_Empty_Backend_Query) {
+    $NETWORKING_LoadBalancer_Empty_Backend = New-Object PSObject -Property @{
+        LB_Id                  = $item.LB_Id;         
+        LB_Name                = $item.LB_Name;
+        SKUName                = $item.SKUName;
+        SKUTier                = $item.SKUTier;
+        location               = $item.location; 
+        resourceGroup          = $item.resourceGroup;  
+        subscriptionName       = $item.subscriptionName; 
+        subscriptionId         = $item.subscriptionId;         
+        tags                   = $item.tags;                       
+        }
+    $NETWORKING_LoadBalancer_Empty_Backend | select-object "LB_Id", "LB_Name", "SKUName", "SKUTier", "location", "resourceGroup", "subscriptionName", "subscriptionId", "tags" `
+    | Export-CSV "$OutputFolder\WorkbookOutput\Networking\NETWORKING_LoadBalancer_Empty_Backend.csv"  -Append -NoTypeInformation
+}
+
+# Networking Page -> Unattached Public IPs
+$NETWORKING_Unattached_Public_IPs_Query = Search-AzGraph -Query "
+resources 
+| where type =~ 'Microsoft.Network/publicIPAddresses'
+| where isempty(properties.ipConfiguration)
+| where isempty(properties.natGateway) 
+| extend PublicIpId = id, AllocationMethod = tostring(properties.publicIPAllocationMethod), tostring(SKUName = sku.name), SKUTier = tostring(sku.tier)
+| join kind=leftouter(
+    resources 
+    | where type =~ 'microsoft.network/networkinterfaces'
+    | where isempty(properties.virtualMachine)
+    | where isnull(properties.privateEndpoint)
+    | where isnotempty(properties.ipConfigurations) 
+    | extend IPconfig = properties.ipConfigurations 
+    | mv-expand IPconfig 
+    | extend PublicIpId = tostring(IPconfig.properties.publicIPAddress.id)
+    | project PublicIpId
+) on PublicIpId
+| project-away PublicIpId1
+| extend PublicIpName = tostring(split(PublicIpId,'providers/Microsoft.Network/publicIPAddresses/')[1]) 
+| join kind=inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId 
+| project PublicIpId, PublicIpName, SKUName, SKUTier, AllocationMethod, zones, location, resourceGroup, subscriptionName, subscriptionId, tags
+| order by PublicIpId asc
+"
+foreach ($item in $NETWORKING_Unattached_Public_IPs_Query) {
+    $NETWORKING_Unattached_Public_IPs = New-Object PSObject -Property @{
+        PublicIpId             = $item.PublicIpId;         
+        PublicIpName           = $item.PublicIpName;
+        SKUName                = $item.SKUName;
+        SKUTier                = $item.SKUTier;
+        AllocationMethod       = $item.AllocationMethod;
+        zones                  = $item.zones;
+        location               = $item.location; 
+        resourceGroup          = $item.resourceGroup;  
+        subscriptionName       = $item.subscriptionName; 
+        subscriptionId         = $item.subscriptionId;         
+        tags                   = $item.tags;                       
+        }
+    $NETWORKING_Unattached_Public_IPs | select-object "PublicIpId", "PublicIpName", "SKUName", "SKUTier", "AllocationMethod", "zones", "location", "resourceGroup", "subscriptionName", "subscriptionId", "tags" `
+    | Export-CSV "$OutputFolder\WorkbookOutput\Networking\NETWORKING_Unattached_Public_IPs.csv"  -Append -NoTypeInformation
+}
+
+############################################################
+#################### Monitoring PAGE #######################
+############################################################
+
+# Monitoring Page -> Log Analytics Workspaces ALL
+$MONITORING_Log_Analytics_Workspaces_ALL_Query = Search-AzGraph -Query "
+resources
+| where type =~ 'microsoft.operationalinsights/workspaces'
+| extend state = trim(' ', tostring(properties.provisioningState)), sku = trim(' ', tostring(properties.sku.name)), skuUpdate = trim(' ', tostring(properties.sku.lastSkuUpdate)), retentionDays = toint(properties.retentionInDays), dailyquotaGB  = trim(' ', tostring(properties.workspaceCapping.dailyQuotaGb))
+| extend dailyquotaGB = iif(dailyquotaGB !=-1.0, dailyquotaGB,'--')
+| extend WorkspaceName = name
+| join kind=inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId 
+| project WorkspaceId = id, WorkspaceName, retentionDays, dailyquotaGB, sku, location, resourceGroup, subscriptionName, subscriptionId, tags
+| order by WorkspaceId asc
+"
+foreach ($item in $MONITORING_Log_Analytics_Workspaces_ALL_Query) {
+    $MONITORING_Log_Analytics_Workspaces_ALL = New-Object PSObject -Property @{
+        WorkspaceId            = $item.WorkspaceId;         
+        WorkspaceName          = $item.WorkspaceName;
+        retentionDays          = $item.retentionDays;
+        dailyquotaGB           = $item.dailyquotaGB;
+        sku                    = $item.sku;
+        location               = $item.location; 
+        resourceGroup          = $item.resourceGroup;  
+        subscriptionName       = $item.subscriptionName; 
+        subscriptionId         = $item.subscriptionId;         
+        tags                   = $item.tags;                       
+        }
+    $MONITORING_Log_Analytics_Workspaces_ALL | select-object "WorkspaceId", "WorkspaceName", "retentionDays", "dailyquotaGB", "sku", "location", "resourceGroup", "subscriptionName", "subscriptionId", "tags" `
+    | Export-CSV "$OutputFolder\WorkbookOutput\Networking\MONITORING_Log_Analytics_Workspaces_ALL.csv"  -Append -NoTypeInformation
+}
