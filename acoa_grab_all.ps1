@@ -38,6 +38,7 @@ mkdir -p $OutputFolder\WorkbookOutput\Storage
 mkdir -p $OutputFolder\WorkbookOutput\Networking
 mkdir -p $OutputFolder\WorkbookOutput\Monitoring
 mkdir -p $OutputFolder\WorkbookOutput\Monitoring\Workspaces_Usage
+mkdir -p $OutputFolder\WorkbookOutput\Subscriptions
 
 ############################################################
 ####################### GENERAL PAGE #######################
@@ -706,3 +707,46 @@ foreach ($item in $MONITORING_Log_Analytics_Workspaces_ALL_Query) {
     $MONITORING_Log_Analytics_Workspaces_ALL | select-object "WorkspaceId", "WorkspaceName", "retentionDays", "dailyquotaGB", "sku", "location", "resourceGroup", "subscriptionName", "subscriptionId", "tags" `
     | Export-CSV "$OutputFolder\WorkbookOutput\Networking\MONITORING_Log_Analytics_Workspaces_ALL.csv"  -Append -NoTypeInformation
 }
+
+############################################################
+#################### Subscripton Info ######################
+############################################################
+
+# Identifies Dev/Test Subscriptions 
+$SUBSCRIPTIONS_DevTest_Query = Search-AzGraph -Query "
+ResourceContainers
+| where type =~ 'microsoft.resources/subscriptions'
+| where properties.subscriptionPolicies.quotaId =~ 'MSDNDevTest_2014-09-01'
+| extend OfferType = properties.subscriptionPolicies.quotaId 
+| project name, id, tenantId, OfferType
+"
+foreach ($item in $SUBSCRIPTIONS_DevTest_Query) {
+    $SUBSCRIPTIONS_DevTest = New-Object PSObject -Property @{
+        name                   = $item.name;         
+        id                     = $item.id;
+        tenantId               = $item.tenantId;
+        OfferType              = $item.OfferType;                    
+        }
+    $SUBSCRIPTIONS_DevTest | select-object "name", "id", "tenantId", "OfferType"`
+    | Export-CSV "$OutputFolder\Subscriptions\DevTest-Subscriptions.csv" -Append -NoTypeInformation
+}
+
+#Identifies ALL Subscriptions
+$SUBSCRIPTIONS_ALL_Query = Search-AzGraph -Query "
+ResourceContainers
+| where type =~ 'microsoft.resources/subscriptions'
+| extend OfferType = properties.subscriptionPolicies.quotaId 
+| project name, id, tenantId, OfferType
+"
+foreach ($item in $SUBSCRIPTIONS_ALL_Query) {
+    $SUBSCRIPTIONS_ALL = New-Object PSObject -Property @{
+        name                   = $item.name;         
+        id                     = $item.id;
+        tenantId               = $item.tenantId;
+        OfferType              = $item.OfferType;                    
+        }
+    $SUBSCRIPTIONS_ALL | select-object "name", "id", "tenantId", "OfferType"`
+    | Export-CSV "$OutputFolder\Subscriptions\ALL-Subscriptions.csv" -Append -NoTypeInformation
+}
+
+
