@@ -749,4 +749,47 @@ foreach ($item in $SUBSCRIPTIONS_ALL_Query) {
     | Export-CSV "$OutputFolder\Subscriptions\ALL-Subscriptions.csv" -Append -NoTypeInformation
 }
 
+#Lists Subscriptions with Management Group name (requires -UseTenantScope switch)
+$SUBSCRIPTIONS_ManagementGroups_w_Subs_Query = Search-AzGraph -Query "
+ResourceContainers
+| where type =~ 'microsoft.management/managementgroups'
+| project mgname = name
+| join kind=leftouter (resourcecontainers 
+| where type=~ 'microsoft.resources/subscriptions'
+| extend  mgParent = properties.managementGroupAncestorsChain 
+| project subscriptionId = tostring(split(id,'/subscriptions/')[1]) , mgname = tostring(mgParent[0].name)) on mgname
+| project-away mgname1
+| join  (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId 
+| project-away subscriptionId1
+" -UseTenantScope
+foreach ($item in $SUBSCRIPTIONS_ManagementGroups_w_Subs_Query) {
+    $SUBSCRIPTIONS_ManagementGroups_w_Subs = New-Object PSObject -Property @{
+        mgname                   = $item.mgname;         
+        SubscriptionId           = $item.SubscriptionId;
+        SubscriptionName         = $item.SubscriptionName;                  
+        }
+    $SUBSCRIPTIONS_ManagementGroups_w_Subs | select-object "mgname", "SubscriptionId", "SubscriptionName"`
+    | Export-CSV "$OutputFolder\Subscriptions\Subscriptions_with_ManagementGroups.csv" -Append -NoTypeInformation
+}
+
+#Count of subscriptions by Management Group (requires -UseTenantScope switch)
+$SUBSCRIPTIONS_ManagementGroups_Sub_Count_Query = Search-AzGraph -Query "
+ResourceContainers
+| where type =~ 'microsoft.management/managementgroups'
+| project mgname = name
+| join kind=leftouter (resourcecontainers | where type=~ 'microsoft.resources/subscriptions'
+| extend  mgParent = properties.managementGroupAncestorsChain | project id, mgname = tostring(mgParent[0].name)) on mgname
+| summarize count() by mgname
+" -UseTenantScope
+foreach ($item in $SUBSCRIPTIONS_ManagementGroups_Sub_Count_Query) {
+    $SUBSCRIPTIONS_ManagementGroups_Sub_Count = New-Object PSObject -Property @{
+        mgname                   = $item.mgname;         
+        count_                   = $item.count_;               
+        }
+    $SUBSCRIPTIONS_ManagementGroups_Sub_Count | select-object "mgname", "count_"`
+    | Export-CSV "$OutputFolder\Subscriptions\ManagementGroups_SubscriptionCount.csv" -Append -NoTypeInformation
+}
+
+
+
 
