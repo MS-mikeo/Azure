@@ -705,7 +705,7 @@ foreach ($item in $MONITORING_Log_Analytics_Workspaces_ALL_Query) {
         tags                   = $item.tags;                       
         }
     $MONITORING_Log_Analytics_Workspaces_ALL | select-object "WorkspaceId", "WorkspaceName", "retentionDays", "dailyquotaGB", "sku", "location", "resourceGroup", "subscriptionName", "subscriptionId", "tags" `
-    | Export-CSV "$OutputFolder\WorkbookOutput\Networking\MONITORING_Log_Analytics_Workspaces_ALL.csv"  -Append -NoTypeInformation
+    | Export-CSV "$OutputFolder\WorkbookOutput\Monitoring\Workspaces_Usage\MONITORING_Log_Analytics_Workspaces_ALL.csv"  -Append -NoTypeInformation
 }
 
 ############################################################
