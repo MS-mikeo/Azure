@@ -38,7 +38,7 @@ mkdir -p $OutputFolder\WorkbookOutput\Storage
 mkdir -p $OutputFolder\WorkbookOutput\Networking
 mkdir -p $OutputFolder\WorkbookOutput\Monitoring
 mkdir -p $OutputFolder\WorkbookOutput\Monitoring\Workspaces_Usage
-mkdir -p $OutputFolder\WorkbookOutput\Subscriptions
+mkdir -p $OutputFolder\Subscriptions
 
 ############################################################
 ####################### GENERAL PAGE #######################
