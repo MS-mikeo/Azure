@@ -7,11 +7,11 @@
 
 $moduleName = "Az.Accounts"
 if (!(Get-Module -ListAvailable -Name $moduleName)) {
-    Install-Module -Name $moduleName 
+    Install-Module -Name $moduleName -Force
 }
 $moduleName = "Az.ResourceGraph"
 if (!(Get-Module -ListAvailable -Name $moduleName)) {
-    Install-Module -Name $moduleName 
+    Install-Module -Name $moduleName -Force
 }
 
 Import-module Az.Accounts
