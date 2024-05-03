@@ -382,7 +382,8 @@ foreach ($item in $STORAGE_recoveryVaultsReplication_Query) {
 }
 
 # STORAGE Page -> unattachedDisks-TOUCHED_UP
-$STORAGE_unattachedDisks_Query = Search-AzGraph -Query "resources | where type =~ 'microsoft.compute/disks'| where isempty(managedBy) | extend diskState = tostring(properties.diskState) | where diskState != 'ActiveSAS' or diskState == 'Unattached' `
+$STORAGE_unattachedDisks_Query = Search-AzGraph -Query "resources | where type =~ 'microsoft.compute/disks' and managedBy == "" | extend diskState = tostring(properties.diskState) | where managedBy == "" and diskState != 'ActiveSAS' `
+or diskState == 'Unattached' and diskState != 'ActiveSAS' and tags !contains 'ASR-ReplicaDisk' and tags !contains 'asrseeddisk' `
 | extend id = tolower(id) | join kind=inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId `
 | join kind = leftouter (resourcechanges | where type == 'microsoft.resources/changes' | where properties.targetResourceType == 'microsoft.compute/disks' | where properties.changeType == 'Update' `
 | where isnotnull(properties.changes.managedBy.previousValue) | where isnull(properties.changes.managedBy.newValue) `
