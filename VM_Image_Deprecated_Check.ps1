@@ -13,9 +13,18 @@
 #
 # ===========================================================================================
 
+$moduleName = "Az.Accounts"
+if (!(Get-Module -ListAvailable -Name $moduleName)) {
+    Install-Module -Name $moduleName -Force
+}
+$moduleName = "Az.Compute"
+if (!(Get-Module -ListAvailable -Name $moduleName)) {
+    Install-Module -Name $moduleName -Force
+}
 
-# Install Azure PowerShell module if not already installed
-# Install-Module -Name Az -AllowClobber -Scope CurrentUser
+Import-module Az.Accounts
+
+Import-module Az.Compute
 
 # Connect to Azure account
 Connect-AzAccount
@@ -33,13 +42,13 @@ foreach ($subscription in $subscriptions) {
     # Get all VMs in the current subscription
     $vms = Get-AzVM -Status
 
-    foreach ($vm in $vms) {
+    foreach ($vm in $vms | where-object { $vm.StorageProfile.ImageReference.Publisher -ne $Null } ) {
         # Extract image reference details
         $imageReference = $vm.StorageProfile.ImageReference
         $imagePublisher = $imageReference.Publisher
         $imageOffer = $imageReference.Offer
         $imageSku = $imageReference.Sku
-        $imageVersion = $imageReference.Version
+        $imageVersion = $imageReference.ExactVersion
 
         # Get the location (region) of the VM
         $location = $vm.Location
@@ -52,9 +61,8 @@ foreach ($subscription in $subscriptions) {
         $deprecationStatus = $imageInfo.ImageDeprecationStatus
 	      if ($null -eq $deprecationStatus) {
         # Populate the variable with a new value if it's null
-        $deprecationStatus = $errormessage
+        $deprecationStatus = $errormessage | Out-String
         }
-
 
         # Create an object for the result
         $result = [PSCustomObject]@{
@@ -75,5 +83,5 @@ foreach ($subscription in $subscriptions) {
     }
 }
 
-# Output the results
-$results 
+# Output the results that have DeprecationStatus populated only
+$results | Where-Object { $_.DeprecationStatus -ne $Null }
