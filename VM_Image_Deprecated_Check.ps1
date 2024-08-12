@@ -13,6 +13,10 @@
 #
 # ===========================================================================================
 
+
+# Install Azure PowerShell module if not already installed
+# Install-Module -Name Az -AllowClobber -Scope CurrentUser
+
 $moduleName = "Az.Accounts"
 if (!(Get-Module -ListAvailable -Name $moduleName)) {
     Install-Module -Name $moduleName -Force
@@ -25,6 +29,7 @@ if (!(Get-Module -ListAvailable -Name $moduleName)) {
 Import-module Az.Accounts
 
 Import-module Az.Compute
+
 
 # Connect to Azure account
 Connect-AzAccount
@@ -40,9 +45,9 @@ foreach ($subscription in $subscriptions) {
     Set-AzContext -SubscriptionId $subscription.Id
 
     # Get all VMs in the current subscription
-    $vms = Get-AzVM -Status
+    $vms = Get-AzVM -Status | where-object { $_.StorageProfile.ImageReference.Publisher -ne $Null }
 
-    foreach ($vm in $vms | where-object { $vm.StorageProfile.ImageReference.Publisher -ne $Null } ) {
+    foreach ($vm in $vms) {
         # Extract image reference details
         $imageReference = $vm.StorageProfile.ImageReference
         $imagePublisher = $imageReference.Publisher
@@ -58,11 +63,12 @@ foreach ($subscription in $subscriptions) {
 
         # Check the deprecation status of the marketplace image
         $imageInfo = Get-AzVMImage -Location $location -PublisherName $imagePublisher -Offer $imageOffer -Sku $imageSku -Version $imageVersion -errorvariable errormessage
-        $deprecationStatus = $imageInfo.ImageDeprecationStatus
+        $deprecationStatus = $imageInfo.ImageDeprecationStatus.ImageState
 	      if ($null -eq $deprecationStatus) {
         # Populate the variable with a new value if it's null
-        $deprecationStatus = $errormessage | Out-String
+        $deprecationStatus = $errormessage 
         }
+
 
         # Create an object for the result
         $result = [PSCustomObject]@{
@@ -83,5 +89,5 @@ foreach ($subscription in $subscriptions) {
     }
 }
 
-# Output the results that have DeprecationStatus populated only
-$results | Where-Object { $_.DeprecationStatus -ne $Null }
+# Output the results
+$results 
