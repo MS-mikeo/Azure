@@ -1,0 +1,37 @@
+resources
+| where type == "microsoft.network/networksecuritygroups"
+| project id, name, location, 
+          defaultSecurityRules = properties.defaultSecurityRules, 
+          securityRules = properties.securityRules
+| mv-expand defaultSecurityRules
+| project id, name, location, ruleType = "Default", 
+          ruleName = tostring(defaultSecurityRules.name), 
+          description = tostring(defaultSecurityRules.properties.description), 
+          direction = tostring(defaultSecurityRules.properties.direction),
+          access = tostring(defaultSecurityRules.properties.access),
+          priority = toint(defaultSecurityRules.properties.priority),
+          protocol = tostring(defaultSecurityRules.properties.protocol),
+          sourceAddressPrefix = tostring(defaultSecurityRules.properties.sourceAddressPrefix),
+          sourcePortRange = tostring(defaultSecurityRules.properties.sourcePortRange),
+          destinationAddressPrefix = tostring(defaultSecurityRules.properties.destinationAddressPrefix),
+          destinationPortRange = tostring(defaultSecurityRules.properties.destinationPortRange)
+| union (
+    Resources
+    | where type == "microsoft.network/networksecuritygroups"
+    | project id, name, location, 
+              defaultSecurityRules = properties.defaultSecurityRules, 
+              securityRules = properties.securityRules
+    | mv-expand securityRules
+    | project id, name, location, ruleType = "Custom",
+              ruleName = tostring(securityRules.name), 
+              description = tostring(securityRules.properties.description), 
+              direction = tostring(securityRules.properties.direction),
+              access = tostring(securityRules.properties.access),
+              priority = toint(securityRules.properties.priority),
+              protocol = tostring(securityRules.properties.protocol),
+              sourceAddressPrefix = tostring(securityRules.properties.sourceAddressPrefix),
+              sourcePortRange = tostring(securityRules.properties.sourcePortRange),
+              destinationAddressPrefix = tostring(securityRules.properties.destinationAddressPrefix),
+              destinationPortRange = tostring(securityRules.properties.destinationPortRange)
+)
+| order by name, ruleName
