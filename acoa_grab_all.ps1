@@ -14,7 +14,7 @@
 # ===========================================================================================
 
 
-# Changes needed before finished:
+# Changes needed still:
 # 1.) Update all Subscription IDs to have Subscription name in any GENERAL and COMPUTE exports
 # 2.) Add Advisor and Orphan resources export (and any other beneficial ones - empty app service plans that are not serverless)
 # 3.) Review/update beginning logic for module/folder checks
@@ -398,30 +398,31 @@ foreach ($item in $STORAGE_recoveryVaultsReplication_Query) {
 }
 
 # STORAGE Page -> unattachedDisks-TOUCHED_UP
-$STORAGE_unattachedDisks_Query = Search-AzGraph -Query "resources | where type =~ 'microsoft.compute/disks' and managedBy == "" | extend diskState = tostring(properties.diskState) | where managedBy == "" and diskState != 'ActiveSAS' `
-or diskState == 'Unattached' and diskState != 'ActiveSAS' and tags !contains 'ASR-ReplicaDisk' and tags !contains 'asrseeddisk' `
+$STORAGE_unattachedDisks_Query = Search-AzGraph -Query "resources | where type =~ 'microsoft.compute/disks' and managedBy == "" | where managedBy == "" and properties.diskState != 'ActiveSAS' `
+or properties.diskState == 'Unattached' and properties.diskState != 'ActiveSAS' and tags !contains 'ASR-ReplicaDisk' and tags !contains 'asrseeddisk' `
 | extend id = tolower(id) | join kind=inner (resourcecontainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName = name) on subscriptionId `
 | join kind = leftouter (resourcechanges | where type == 'microsoft.resources/changes' | where properties.targetResourceType == 'microsoft.compute/disks' | where properties.changeType == 'Update' `
 | where isnotnull(properties.changes.managedBy.previousValue) | where isnull(properties.changes.managedBy.newValue) `
 | extend timeDetached = todatetime(properties.changeAttributes.timestamp), targetResourceId = tolower(tostring(properties.targetResourceId)) | summarize arg_max(timeDetached,*) by targetResourceId | project id=targetResourceId, timeDetached) on id `
 | order by id asc | extend resourceGroup = tostring(split(id,'/providers/')[0]) | extend resourceGroupName = tostring(split(resourceGroup,'/resourcegroups/')[1]) | extend diskName = tostring(split(id,'/providers/microsoft.compute/disks/')[1]) `
-| project id, subscriptionId, subscriptionName, resourceGroupName, diskName, diskSizeInGB=properties.diskSizeGB, skuName=sku.name, skuTier=sku.tier, location, timeCreated=properties.timeCreated, timeDetached, tags"
+| project id, subscriptionId, subscriptionName, resourceGroupName, diskName, diskSizeInGB=properties.diskSizeGB, skuName=sku.name, skuTier=sku.tier, location, timeCreated=properties.timeCreated, timeDetached, LastOwnershipUpdateTime=properties.LastOwnershipUpdateTime, tags"
 foreach ($item in $STORAGE_unattachedDisks_Query) {
     $STORAGE_unattachedDisks = New-Object PSObject -Property @{
-        id                 = $item.id;         
-        subscriptionId     = $item.subscriptionId;
-        subscriptionName   = $item.subscriptionName;
-        resourceGroupName  = $item.resourceGroupName;  
-        diskName           = $item.diskName;          
-        diskSizeInGB       = $item.diskSizeInGB;
-        skuName            = $item.skuName;
-        skuTier            = $item.skuTier;          
-        location           = $item.location;       
-        timeCreated        = $item.timeCreated;  
-        timeDetached       = $item.timeDetached;
-        tags               = $item.tags;                       
+        id                        = $item.id;         
+        subscriptionId          = $item.subscriptionId;
+        subscriptionName        = $item.subscriptionName;
+        resourceGroupName       = $item.resourceGroupName;  
+        diskName                = $item.diskName;          
+        diskSizeInGB            = $item.diskSizeInGB;
+        skuName                 = $item.skuName;
+        skuTier                 = $item.skuTier;          
+        location                = $item.location;       
+        timeCreated             = $item.timeCreated;  
+        timeDetached            = $item.timeDetached;
+        LastOwnershipUpdateTime = $item.timeDetached;
+        tags                    = $item.tags;                       
         }
-    $STORAGE_unattachedDisks | select-object "id", "subscriptionId", "subscriptionName", "resourceGroupName", "diskName", "diskSizeInGB", "skuName", "skuTier", "location", "timeCreated", "timeDetached", "tags" `
+    $STORAGE_unattachedDisks | select-object "id", "subscriptionId", "subscriptionName", "resourceGroupName", "diskName", "diskSizeInGB", "skuName", "skuTier", "location", "timeCreated", "timeDetached", "LastOwnershipUpdateTime", "tags" `
     | Export-CSV "$OutputFolder\WorkbookOutput\Storage\STORAGE_unattachedDisks.csv"  -Append -NoTypeInformation
 }
 
@@ -806,7 +807,3 @@ foreach ($item in $SUBSCRIPTIONS_ManagementGroups_Sub_Count_Query) {
     $SUBSCRIPTIONS_ManagementGroups_Sub_Count | select-object "mgname", "count_"`
     | Export-CSV "$OutputFolder\Subscriptions\ManagementGroups_SubscriptionCount.csv" -Append -NoTypeInformation
 }
-
-
-
-
