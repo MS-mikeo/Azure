@@ -1,0 +1,175 @@
+{
+  "properties": {
+    "displayName": "Custom - Enable logging by category group for Network security groups to Event Hub",
+    "policyType": "Custom",
+    "mode": "All",
+    "description": "Resource logs should be enabled to track activities and events that take place on your resources and give you visibility and insights into any changes that occur. This policy deploys a diagnostic setting using a category group to route logs to an Event Hub for Network security groups (microsoft.network/networksecuritygroups).",
+    "metadata": {
+      "category": "Monitoring",
+      "createdBy": "redacted",
+      "createdOn": "2024-09-05T15:55:39.100995Z",
+      "updatedBy": "redacted",
+      "updatedOn": "2024-09-05T20:19:26.9581882Z"
+    },
+    "version": "1.0.0",
+    "parameters": {
+      "diagnosticSettingName": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Diagnostic Setting Name",
+          "description": "Diagnostic Setting Name"
+        },
+        "defaultValue": "diagnosticlogs-to-eventhub"
+      },
+      "resourceLocation": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Resource Location",
+          "description": "Resource Location must be in the same location as the Event Hub Namespace.",
+          "strongType": "location"
+        }
+      },
+      "eventHubPrefix": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Event Hub Prefix",
+          "description": "Event Hub Prefix."
+        },
+        "defaultValue": "mpo-eh-"
+      },
+      "eventHubRuleIdPrefix": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Event Hub Rule ID Prefix",
+          "description": "Event Hub Rule ID Prefix."
+        },
+        "defaultValue": "/subscriptions/redacted/resourceGroups/RG-MPO-EVENTHUB/providers/Microsoft.EventHub/namespaces/MPO-JLL-NS-"
+      },
+      "eventHubRuleIdSuffix": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Event Hub Rule ID Suffix",
+          "description": "Event Hub Rule ID Suffix."
+        },
+        "defaultValue": "/authorizationrules/RootManageSharedAccessKey"
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allOf": [
+          {
+            "field": "type",
+            "equals": "microsoft.network/networksecuritygroups"
+          },
+          {
+            "field": "location",
+            "equals": "[parameters('resourceLocation')]"
+          }
+        ]
+      },
+      "then": {
+        "effect": "deployIfNotExists",
+        "details": {
+          "type": "Microsoft.Insights/diagnosticSettings",
+          "existenceCondition": {
+            "allOf": [
+              {
+                "field": "Microsoft.Insights/diagnosticSettings/eventHubAuthorizationRuleId",
+                "equals": "[concat(parameters('eventHubRuleIdPrefix'), parameters('resourceLocation'), parameters('eventHubRuleIdSuffix'))]"
+              },
+              {
+                "field": "Microsoft.Insights/diagnosticSettings/eventHubName",
+                "equals": "[concat(parameters('eventHubPrefix'), parameters('resourceLocation'))]"
+              },
+              {
+                "field": "location",
+                "equals": "[parameters('resourceLocation')]"
+              }
+            ]
+          },
+          "roleDefinitionIds": [
+            "/providers/Microsoft.Authorization/roleDefinitions/f526a384-b230-433a-b45c-95f59c4a2dec",
+            "/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c"
+          ],
+          "deployment": {
+            "properties": {
+              "mode": "incremental",
+              "template": {
+                "$schema": "http://schema.management.azure.com/schemas/2019-08-01/deploymentTemplate.json#",
+                "contentVersion": "1.0.0.0",
+                "parameters": {
+                  "diagnosticSettingName": {
+                    "type": "string"
+                  },
+                  "eventHubPrefix": {
+                    "type": "string"
+                  },
+                  "eventHubRuleIdPrefix": {
+                    "type": "string"
+                  },
+                  "eventHubRuleIdSuffix": {
+                    "type": "string"
+                  },
+                  "resourceLocation": {
+                    "type": "string"
+                  },
+                  "resourceName": {
+                    "type": "string"
+                  }
+                },
+                "variables": {},
+                "resources": [
+                  {
+                    "type": "microsoft.network/networksecuritygroups/providers/diagnosticSettings",
+                    "apiVersion": "2021-05-01-preview",
+                    "name": "[concat(parameters('resourceName'), '/', 'Microsoft.Insights/', parameters('diagnosticSettingName'))]",
+                    "location": "[parameters('resourceLocation')]",
+                    "properties": {
+                      "eventHubName": "[concat(parameters('eventHubPrefix'), parameters('resourceLocation'))]",
+                      "eventHubAuthorizationRuleId": "[concat(parameters('eventHubRuleIdPrefix'), parameters('resourceLocation'), parameters('eventHubRuleIdSuffix'))]",
+                      "logs": [
+                        {
+                          "category": "NetworkSecurityGroupEvent",
+                          "enabled": "true"
+                        },
+                        {
+                          "category": "NetworkSecurityGroupRuleCounter",
+                          "enabled": "true"
+                        }
+                      ],
+                      "metrics": []
+                    }
+                  }
+                ],
+                "outputs": {
+                  "policy": {
+                    "type": "string",
+                    "value": "[concat('Diagnostic setting ', parameters('diagnosticSettingName'), ' for type Network security groups (microsoft.network/networksecuritygroups), resourceName ', parameters('resourceName'), ' to EventHub configured')]"
+                  }
+                }
+              },
+              "parameters": {
+                "diagnosticSettingName": {
+                  "value": "[parameters('diagnosticSettingName')]"
+                },
+                "eventHubPrefix": {
+                  "value": "[parameters('eventHubPrefix')]"
+                },
+                "eventHubRuleIdPrefix": {
+                  "value": "[parameters('eventHubRuleIdPrefix')]"
+                },
+                "eventHubRuleIdSuffix": {
+                  "value": "[parameters('eventHubRuleIdSuffix')]"
+                },
+                "resourceLocation": {
+                  "value": "[field('location')]"
+                },
+                "resourceName": {
+                  "value": "[field('name')]"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
