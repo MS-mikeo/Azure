@@ -43,7 +43,7 @@
           "displayName": "Event Hub Rule ID Prefix",
           "description": "Event Hub Rule ID Prefix."
         },
-        "defaultValue": "/subscriptions/redacted/resourceGroups/RG-MPO-EVENTHUB/providers/Microsoft.EventHub/namespaces/MPO-JLL-NS-"
+        "defaultValue": "/subscriptions/redacted/resourceGroups/RG-MPO-EVENTHUB/providers/Microsoft.EventHub/namespaces/MPO-NS-"
       },
       "eventHubRuleIdSuffix": {
         "type": "String",
