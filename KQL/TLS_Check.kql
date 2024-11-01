@@ -1,0 +1,21 @@
+resources 
+| where tolower(properties) contains "tls"  // Filter resources where the properties contain "tls", case-insensitive
+| where isnotnull(properties['minimumTlsVersion']) or   // Check if any of the specified TLS version properties have values
+      isnotnull(properties['minimalTlsVersion']) or
+      isnotnull(properties['minTlsVersion']) or
+      isnotnull(properties['scmMinTlsVersion']) 
+| join kind=inner (resourcecontainers  // Perform an inner join with the resourcecontainers table
+    | where type == 'microsoft.resources/subscriptions'  // Filter resource containers to only include subscriptions
+    | project subscriptionId, subscriptionName = name)   // Select the subscriptionId and rename name to subscriptionName
+on subscriptionId  // Join on the subscriptionId field
+| project id, name, type, kind,  // Select specific fields to include in the final output
+          properties['minimumTlsVersion'], 
+          properties['minimalTlsVersion'],
+          properties['minTlsVersion'], 
+          properties['scmMinTlsVersion'],
+          location, 
+          resourceGroup, 
+          subscriptionName, 
+          subscriptionId, 
+          tags 
+| order by id asc  // Sort the results in ascending order by the id field
