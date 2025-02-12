@@ -1,0 +1,44 @@
+# Set variable for storage account ID for FinOps Hub, FinOps Hub Version, and number of months for backfill data
+$StorageAccountId="/subscriptions/xxxxxxxx-xxxx-xxxx-xxxxx-xxxxxxxxxxx/resourceGroups/rg-example/providers/Microsoft.Storage/storageAccounts/finopshubxxxxxxxxxxxxx"
+$FinOpsHubVersion="V08"
+$BackfillMonths="6"
+
+# Checking for modules and installing
+$moduleName = "Az.Accounts"
+if (!(Get-Module -ListAvailable -Name $moduleName)) {
+    Install-Module -Name $moduleName -Force
+}
+$moduleName = "Az.Resources"
+if (!(Get-Module -ListAvailable -Name $moduleName)) {
+    Install-Module -Name $moduleName -Force
+}
+$moduleName = "FinOpsToolkit"
+if (!(Get-Module -ListAvailable -Name $moduleName)) {
+    Install-Module -Name $moduleName -Force
+}
+
+#Importing modules
+Import-Module -Name Az.Accounts
+Import-Module -Name Az.Resources
+Import-Module -Name FinOpsToolkit
+
+#Connecting to Azure
+connect-azaccount 
+
+# Getting list of subscriptions to loop through for exports
+$subscriptions=get-azsubscription
+foreach ($subscription in $subscriptions) 
+{
+$Scope= "/subscriptions/" + $subscription.Id
+$ExportName="Focus-" + $FinOpsHubVersion
+
+#Configuring daily month to date exports for each subscription and backfill for months entered in variables
+New-FinopsCostExport -Name $ExportName `
+    -Scope $Scope `
+    -StorageAccountId $StorageAccountId `
+    -DataSet "FocusCost" `
+    -DataSetVersion "1.0r2" `
+    -StorageContainer "msexports" `
+    -Backfill $BackfillMonths `
+    -Execute 
+}
