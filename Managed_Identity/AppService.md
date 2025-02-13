@@ -7,7 +7,7 @@ Using System Assigned Managed Identity:
 3.) Copy IDENTITY_HEADER and IDENTITY_ENDPOINT 
 4.) Use this to form requests below.  curl can be used from the ssh connection
 
-Exampple:
+Example:<br>
 GET /MSI/token?resource=https://vault.azure.net&api-version=2019-08-01 HTTP/1.1
 Host: <ip-address-:-port-in-IDENTITY_ENDPOINT>
 X-IDENTITY-HEADER: <value-of-IDENTITY_HEADER>
@@ -16,12 +16,12 @@ Variable Examples:
 IDENTITY_ENDPOINT=http://169.254.444.4:8081/msi/token
 IDENTITY_HEADER=5f354567-23ce-48c5-b046-d9e4cdcxxxxxxx
 
-System Assigned Managed Identity:
+System Assigned Managed Identity:<br>
 curl -X GET "http://169.254.444.4:8081/msi/token?api-version=2019-08-01&resource=https://management.azure.com/" \
      -H "Host: 169.254.444.4:8081" \
      -H "X-IDENTITY-HEADER: 5f354567-23ce-48c5-b046-d9e4cdcxxxxxxx"
 
-User Assigned Managed Identity (note client_id in request):
+User Assigned Managed Identity (note client_id in request):<br>
 curl -X GET "http://169.254.129.4:8081/msi/token?api-version=2019-08-01&resource=https://management.azure.com/&client_id=ad4b498e-eef2-4090-90c4-xxxxxxx" \
      -H "Host: 169.254.444.4:8081" \
      -H "X-IDENTITY-HEADER: 5f354567-23ce-48c5-b046-d9e4cdcxxxxxxx"
