@@ -1,0 +1,15 @@
+QuotaResources 
+| where type =~ 'microsoft.compute/locations/usages'
+| where isnotempty(properties)
+| mv-expand propertyJson = properties.value limit 400
+| extend
+    usage = propertyJson.currentValue,
+    quota = propertyJson.['limit'],
+    quotaName = tostring(propertyJson.['name'].value)
+| extend usagePercent = toint(usage)*100 / toint(quota)| project-away properties| where location in~ ('centralus')| where quotaName in~ ('cores')
+| join kind=inner (resourcecontainers  // Perform an inner join with the resourcecontainers table
+    | where type == 'microsoft.resources/subscriptions'  // Filter resource containers to only include subscriptions
+    | project subscriptionId, subscriptionName = name)   // Select the subscriptionId and rename name to subscriptionName
+on subscriptionId  // Join on the subscriptionId field
+| project subscriptionName,subscriptionId, location, usage, quota, quotaName, usagePercent, propertyJson.name.localizedValue
+| order by ['usagePercent'] desc
