@@ -1,0 +1,14 @@
+QuotaResources 
+| where type =~ 'microsoft.compute/locations/usages' 
+| where isnotempty(properties) 
+| mv-expand propertyJson = properties.value 
+| extend usage = propertyJson.currentValue, 
+         quota = propertyJson.['limit'], 
+         quotaLocalizedName = tostring(propertyJson.['name'].localizedValue),
+         quotaName = tostring(propertyJson.['name'].value) 
+| extend usagePercent = toint(usage) * 100 / toint(quota) 
+| project-away properties
+| join kind=leftouter (ResourceContainers | where type=='microsoft.resources/subscriptions' | project subscriptionName=name, subscriptionId) on subscriptionId
+| where location contains "eastus2"
+| project subscriptionId, subscriptionName, location, usage, quota, quotaName, quotaLocalizedName, usagePercent
+| sort by subscriptionName asc, quotaName desc
