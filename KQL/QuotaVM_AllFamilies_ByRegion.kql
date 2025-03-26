@@ -1,3 +1,4 @@
+//DOESN'T WORK RIGHT!!! STILL KEEPING FOR FUTURE REFERENCE
 QuotaResources 
 | where type =~ 'microsoft.compute/locations/usages' 
 | where isnotempty(properties) 
