@@ -1,0 +1,7 @@
+// Based on documentation for PIM entries in Entra Audit Logs - https://learn.microsoft.com/en-us/entra/identity/monitoring-health/reference-audit-activities#privileged-identity-management-pim
+AuditLogs
+| where ActivityDisplayName contains "PIM" or ActivityDisplayName in ("Approve request - direct role assignment","Remove request","Role definition created",
+"Cancel request","Cancel request for role removal","Cancel request for role update","Process request","Process role removal request","Process role update request",
+"Remove permanent direct role assignment","Remove permanent eligible role assignment","Remove request","Resource updated","Restore member from role",
+"Restore permanent direct role assignment","Restore permanent eligible role assignment")
+| where TimeGenerated > ago(30d) // Filter for the last 30 days
