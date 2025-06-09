@@ -1,7 +1,9 @@
 # Set variable for storage account ID for FinOps Hub, FinOps Hub Version, and number of months for backfill data
-$StorageAccountId="/subscriptions/xxxxxxxx-xxxx-xxxx-xxxxx-xxxxxxxxxxx/resourceGroups/rg-example/providers/Microsoft.Storage/storageAccounts/finopshubxxxxxxxxxxxxx"
-$FinOpsHubVersion="V08"
-$BackfillMonths="6"
+$StorageAccountId="/subscriptions/xxxx-xxxx-xxxxxxxx-xxxxxxxxx/resourceGroups/rg-xxxxxxx/providers/Microsoft.Storage/storageAccounts/finopshubv0sxxxxxxxxxxxxxxxxx"
+$FinOpsHubVersion="V011"
+$BackfillMonths="10"
+$TenantID=xxxx-xxxx-xxxxxxxx-xxxxxxxxx
+$SubscriptionID=xxxx-xxxx-xxxxxxxx-xxxxxxxxx
 
 # Checking for modules and installing
 $moduleName = "Az.Accounts"
@@ -23,7 +25,7 @@ Import-Module -Name Az.Resources
 Import-Module -Name FinOpsToolkit
 
 #Connecting to Azure
-connect-azaccount 
+connect-azaccount -tenantID $TenantID -Subscription $SubscriptionID
 
 # Getting list of subscriptions to loop through for exports
 $subscriptions=get-azsubscription
