@@ -3,6 +3,12 @@ $tenantId = "xxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx"
 $subscriptionId = "xxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx"
 
 # Requires: Az.Accounts, Az.Storage modules
+$moduleName = "Az.Accounts"
+if (!(Get-Module -ListAvailable -Name $moduleName)) {Install-Module -NameA $moduleName -Force}
+
+$moduleName = "Az.Storage"
+if (!(Get-Module -ListAvailable -Name $moduleName)) {Install-Module -Name $moduleName -Force}
+
 # Login if not already authenticated
 if (-not (Get-AzContext)) {
     connect-AzAccount -tenant $tenantId -Subscription $subscriptionId
