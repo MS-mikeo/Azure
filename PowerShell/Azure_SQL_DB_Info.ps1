@@ -214,6 +214,7 @@ function Get-DatabaseMetrics {
             ResourceGroup = $ResourceGroupName
             ServerName = $ServerName
             DatabaseName = $DatabaseName
+            Location = $database.Location
             AppID = if ($database.Tags -and $database.Tags.ContainsKey("AppID")) { $database.Tags["AppID"] } else { "N/A" }
             Edition = $database.Edition
             ServiceObjective = $database.CurrentServiceObjectiveName
@@ -368,7 +369,7 @@ try {
     Write-Host "`nDatabase Size Information (Actual Used Storage):" -ForegroundColor Cyan
     Write-Host "===============================================" -ForegroundColor Cyan
     
-    $allResults | Format-Table -AutoSize -Property SubscriptionName, ResourceGroup, ServerName, DatabaseName, AppID, Edition, ServiceObjective, SkuName, Family, Status, DatabaseSizeGB, CurrentBackupStorageRedundancy
+    $allResults | Format-Table -AutoSize -Property SubscriptionName, ResourceGroup, ServerName, DatabaseName, Location, AppID, Edition, ServiceObjective, SkuName, Family, Status, DatabaseSizeGB, CurrentBackupStorageRedundancy
     
     # Display backup information
     Write-Host "`nBackup Size Information (Last 30 Days):" -ForegroundColor Cyan
@@ -378,7 +379,7 @@ try {
     
     # Export to CSV with specific column order
     $csvPath = "Azure_SQL_DB_Info_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
-    $allResults | Select-Object SubscriptionName, ResourceGroup, ServerName, DatabaseName, AppID, Edition, ServiceObjective, SkuName, Family, Status, DatabaseSizeGB, CurrentBackupStorageRedundancy, MaxFullBackupSizeGB, MaxLogBackupSizeGB, MaxDiffBackupSizeGB | Export-Csv -Path $csvPath -NoTypeInformation
+    $allResults | Select-Object SubscriptionName, ResourceGroup, ServerName, DatabaseName, Location, AppID, Edition, ServiceObjective, SkuName, Family, Status, DatabaseSizeGB, CurrentBackupStorageRedundancy, MaxFullBackupSizeGB, MaxLogBackupSizeGB, MaxDiffBackupSizeGB | Export-Csv -Path $csvPath -NoTypeInformation
     Write-Host "Results exported to: $csvPath" -ForegroundColor Green
     
     # Display summary
@@ -392,6 +393,22 @@ try {
     
     Write-Host "Total Database Storage Used: $([math]::Round($totalDatabaseStorage, 2)) GB"
     Write-Host "Total Full Backup Storage: $([math]::Round($totalFullBackups, 2)) GB"
+    
+    # Display breakdown by location
+    Write-Host "`nBreakdown by Location:" -ForegroundColor Cyan
+    Write-Host "=====================" -ForegroundColor Cyan
+    
+    $locationSummary = $allResults | Group-Object Location | Sort-Object Name
+    foreach ($location in $locationSummary) {
+        $locationStorage = ($location.Group | Where-Object { $_.DatabaseSizeGB -ne "N/A" } | Measure-Object -Property DatabaseSizeGB -Sum).Sum
+        $locationBackups = ($location.Group | Where-Object { $_.MaxFullBackupSizeGB -ne "N/A" } | Measure-Object -Property MaxFullBackupSizeGB -Sum).Sum
+        
+        Write-Host "Location: $($location.Name)" -ForegroundColor Yellow
+        Write-Host "  Databases: $($location.Count)"
+        Write-Host "  Storage Used: $([math]::Round($locationStorage, 2)) GB"
+        Write-Host "  Full Backup Storage: $([math]::Round($locationBackups, 2)) GB"
+        Write-Host ""
+    }
 }
 catch {
     Write-Error "Script execution failed: $_"
