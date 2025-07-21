@@ -90,6 +90,7 @@ function Connect-ToAzure {
 
 # Function to get backup metrics with optimized time grain
 function Get-BackupMetric {
+    [CmdletBinding()]
     param(
         [string]$ResourceId,
         [string]$MetricName,
@@ -110,24 +111,56 @@ function Get-BackupMetric {
             Write-Verbose "  Found $($metrics.Data.Count) data points"
             
             $maxValue = 0
+            $sumValue = 0
+            $avgValue = 0
+            write-verbose "Initialize max, and sum of backupvalues for $MetricType"
             foreach ($dataPoint in $metrics.Data) {
-                # Check all possible value types
                 $values = @($dataPoint.Maximum, $dataPoint.Average, $dataPoint.Total, $dataPoint.Minimum)
                 foreach ($value in $values) {
-                    if ($value -and $value -gt $maxValue) {
+                    if ($value -gt $maxValue) {
                         $maxValue = $value
                     }
                 }
+                $sumValue += $dataPoint.Maximum
             }
             
-            if ($maxValue -gt 0) {
-                $resultGB = [math]::Round($maxValue / 1GB, 2)
-                Write-Verbose "  $MetricType size: $resultGB GB"
-                return $resultGB
-            } else {
-                Write-Verbose "  $MetricType size is 0 or null"
-                return 0
+            write-verbose "Calculate average if there are data points"
+            if ($metrics.Data.Count -gt 0) {
+                $avgValue = $sumValue / $metrics.Data.Count
             }
+            write-verbose "Average Bytes: $avgValue, Sum Bytes: $sumValue, Max Bytes: $maxValue"
+            write-verbose "Convert values to GB for output"
+                if ($avgValue -gt 0) {
+                    $avgGB = [math]::Round($avgValue / 1GB, 2)
+                    Write-Verbose "  $MetricType average size: $avgGB GB"
+                } else {
+                    Write-Verbose "  $MetricType average size is 0 or null"
+                }
+
+                if ($sumvalue -gt 0) {
+                    $sumGB = [math]::Round($sumValue / 1GB, 2)
+                    Write-Verbose "  $MetricType total size: $sumGB GB"
+                } else {
+                    Write-Verbose "  $MetricType total size is 0 or null"
+                }
+
+                if ($maxValue -gt 0) {
+                    $maxGb = [math]::Round($maxValue / 1GB, 2)
+                    Write-Verbose "  $MetricType size: $maxGB GB"
+                } else {
+                    Write-Verbose "  $MetricType size is 0 or null"
+                }
+       # BOOKMARK 
+        $resultsGb = @{
+                MaxSizeGB = $maxGb;
+                AvgSizeGB = $avgGB;
+                TotalSizeGB = $sumGB
+            }
+                      
+            # Return the result object
+        
+            return $resultsGb
+        
         } else {
             Write-Verbose "  No $MetricType metric data found"
             return 0
@@ -145,7 +178,11 @@ function Get-BackupMetric {
         }
         
         Write-Warning "$MetricType metrics not available for $DatabaseName - may not be supported for this database service tier"
-        return "N/A"
+        return @{
+                MaxSizeGB = "N/A";
+                AvgSizeGB = "N/A";
+                TotalSizeGB = "N/A"
+            }
     }
 }
 
@@ -221,62 +258,39 @@ function Get-DatabaseMetrics {
             SkuName = if ($database.SkuName) { $database.SkuName } else { "N/A" }
             Family = if ($database.Family) { $database.Family } else { "N/A" }
             Status = $database.Status
-            DatabaseSizeGB = "N/A"  # Will be populated from storage metrics
+            DatabaseSizeGB =  [math]::round($database.MaxSizeBytes /1gb, 2)  # Will be populated from storage metrics
             CurrentBackupStorageRedundancy = $database.CurrentBackupStorageRedundancy
         }
         
-        # Get actual used storage metrics (not max allocated)
-        try {
-            Write-Verbose "  Getting actual storage usage..."
-            $storageMetrics = Get-AzMetric -ResourceId $resourceId -MetricName "storage" -StartTime $startTime -EndTime $endTime -TimeGrain "1.00:00:00" -ErrorAction Stop
-            
-            if ($storageMetrics -and $storageMetrics.Data -and $storageMetrics.Data.Count -gt 0) {
-                Write-Verbose "  Found $($storageMetrics.Data.Count) storage data points"
-                
-                # Get the most recent storage usage value
-                $latestDataPoint = $storageMetrics.Data | Sort-Object TimeStamp | Select-Object -Last 1
-                $storageValue = $latestDataPoint.Average
-                
-                if (!$storageValue) {
-                    $storageValue = $latestDataPoint.Maximum
-                }
-                if (!$storageValue) {
-                    $storageValue = $latestDataPoint.Total
-                }
-                
-                if ($storageValue -and $storageValue -gt 0) {
-                    $result.DatabaseSizeGB = [math]::Round($storageValue / 1GB, 2)
-                    Write-Verbose "  Current storage used: $($result.DatabaseSizeGB) GB"
-                } else {
-                    $result.DatabaseSizeGB = 0
-                    Write-Verbose "  Storage usage is 0 or null"
-                }
-            } else {
-                Write-Verbose "  No storage metric data found"
-                $result.DatabaseSizeGB = "N/A"
-            }
-        }
-        catch {
-            Write-Verbose "  Storage metrics not available for $DatabaseName - Error: $($_.Exception.Message)"
-            $result.DatabaseSizeGB = "N/A"
-        }
-        
-        # Get backup storage metrics - removed as per user request
-        
         # Get full backup size metrics
-        $result.MaxFullBackupSizeGB = Get-BackupMetric -ResourceId $resourceId -MetricName "full_backup_size_bytes" -StartTime $startTime -EndTime $endTime -DatabaseName $DatabaseName -MetricType "Full backup"
+        #$result.MaxFullBackupSizeGB = Get-BackupMetric -ResourceId $resourceId -MetricName "full_backup_size_bytes" -StartTime $startTime -EndTime $endTime -DatabaseName $DatabaseName -MetricType "Full backup"
+        $result.FullBackupDetails = Get-BackupMetric -ResourceId $resourceId -MetricName "full_backup_size_bytes" -StartTime $startTime -EndTime $endTime -DatabaseName $DatabaseName -MetricType "Full backup"
         
         # Get log backup size metrics
-        $result.MaxLogBackupSizeGB = Get-BackupMetric -ResourceId $resourceId -MetricName "log_backup_size_bytes" -StartTime $startTime -EndTime $endTime -DatabaseName $DatabaseName -MetricType "Log backup"
-        
+        #$result.MaxLogBackupSizeGB = Get-BackupMetric -ResourceId $resourceId -MetricName "log_backup_size_bytes" -StartTime $startTime -EndTime $endTime -DatabaseName $DatabaseName -MetricType "Log backup"
+        $result.LogBackupDetails = Get-BackupMetric -ResourceId $resourceId -MetricName "log_backup_size_bytes" -StartTime $startTime -EndTime $endTime -DatabaseName $DatabaseName -MetricType "Log backup"
+
         # Get differential backup size metrics
-        $result.MaxDiffBackupSizeGB = Get-BackupMetric -ResourceId $resourceId -MetricName "diff_backup_size_bytes" -StartTime $startTime -EndTime $endTime -DatabaseName $DatabaseName -MetricType "Differential backup"
+        #$result.MaxDiffBackupSizeGB = Get-BackupMetric -ResourceId $resourceId -MetricName "diff_backup_size_bytes" -StartTime $startTime -EndTime $endTime -DatabaseName $DatabaseName -MetricType "Differential backup"
+        $result.DiffBackupDetails = Get-BackupMetric -ResourceId $resourceId -MetricName "diff_backup_size_bytes" -StartTime $startTime -EndTime $endTime -DatabaseName $DatabaseName -MetricType "Differential backup"
         
+        try {
+   
+            $result.TotalBackupSizeGB = $result.FullBackupDetails.TotalSizeGB + $result.DiffBackupDetails.TotalSizeGB + $result.LogBackupDetails.TotalSizeGB
+            $result.AvgDailyBackupSizeGB = $result.FullBackupDetails.AvgSizeGB + $result.DiffBackupDetails.AvgSizeGB + $result.LogBackupDetails.AvgSizeGB
+            $result.BackupDeltaGB = $result.TotalBackupSizeGB - $result.DatabaseSizeGB
+        } catch {
+            Write-Warning "Failed to calculate backup sizes for database $DatabaseName on server $ServerName : $_"
+            $result.TotalBackupSizeGB = 0
+            $result.AvgDailyBackupSizeGB = 0
+            $result.BackupDeltaGB = 0
+        }
+
         return $result
     }
     catch {
         Write-Warning "Failed to get metrics for database $DatabaseName on server $ServerName : $_"
-        return $null
+        return $result
     }
 }
 
@@ -375,11 +389,11 @@ try {
     Write-Host "`nBackup Size Information (Last 30 Days):" -ForegroundColor Cyan
     Write-Host "=======================================" -ForegroundColor Cyan
     
-    $allResults | Format-Table -AutoSize -Property SubscriptionName, ResourceGroup, ServerName, DatabaseName, MaxFullBackupSizeGB, MaxLogBackupSizeGB, MaxDiffBackupSizeGB
+    $allResults | Format-Table -AutoSize -Property SubscriptionName, ResourceGroup, ServerName, DatabaseName, Location, ServiceObjective, CurrentBackupStorageRedundancy, DatabaseSizeGB, TotalBackupSizeGB, AvgDailyBackupSizeGB, BackupDeltaGB
     
     # Export to CSV with specific column order
     $csvPath = "Azure_SQL_DB_Info_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
-    $allResults | Select-Object SubscriptionName, ResourceGroup, ServerName, DatabaseName, Location, AppID, Edition, ServiceObjective, SkuName, Family, Status, DatabaseSizeGB, CurrentBackupStorageRedundancy, MaxFullBackupSizeGB, MaxLogBackupSizeGB, MaxDiffBackupSizeGB | Export-Csv -Path $csvPath -NoTypeInformation
+    $allResults | Select-Object SubscriptionName, ResourceGroup, ServerName, DatabaseName, Location, AppID, Edition, ServiceObjective, SkuName, Family, Status, DatabaseSizeGB, CurrentBackupStorageRedundancy, TotalBackupSizeGB, AvgDailyBackupSizeGB, BackupDeltaGB, @{Name="SumFullBackup"; Expression={$_.FullBackupDetails.TotalSizeGB}}, @{Name="AvgFullBackup"; Expression={$_.FullBackupDetails.AvgSizeGB}}, @{Name="SumDiffBackup"; Expression={$_.DiffBackupDetails.TotalSizeGB}}, @{Name="AvgDiffBackup"; Expression={$_.DiffBackupDetails.AvgSizeGB}}, @{Name="SumLogBackup"; Expression={$_.LogBackupDetails.TotalSizeGB}}, @{Name="AvgLogBackup"; Expression={$_.LogBackupDetails.AvgSizeGB}}| Export-Csv -Path $csvPath -NoTypeInformation
     Write-Host "Results exported to: $csvPath" -ForegroundColor Green
     
     # Display summary
@@ -388,27 +402,29 @@ try {
     Write-Host "Total Servers: $($servers.Count)"
     Write-Host "Total Databases: $($allResults.Count)"
     
+   
     $totalDatabaseStorage = ($allResults | Where-Object { $_.DatabaseSizeGB -ne "N/A" } | Measure-Object -Property DatabaseSizeGB -Sum).Sum
-    $totalFullBackups = ($allResults | Where-Object { $_.MaxFullBackupSizeGB -ne "N/A" } | Measure-Object -Property MaxFullBackupSizeGB -Sum).Sum
+    $totalBackups = ($allResults | Where-Object { $_.TotalBackupSizeGB -ne "N/A" } | Measure-Object -property TotalBackupSizeGB -Sum ).Sum
     
     Write-Host "Total Database Storage Used: $([math]::Round($totalDatabaseStorage, 2)) GB"
-    Write-Host "Total Full Backup Storage: $([math]::Round($totalFullBackups, 2)) GB"
+    Write-Host "Total Backup Storage: $([math]::Round($totalBackups, 2)) GB"
     
     # Display breakdown by location
     Write-Host "`nBreakdown by Location:" -ForegroundColor Cyan
     Write-Host "=====================" -ForegroundColor Cyan
-    
+  
     $locationSummary = $allResults | Group-Object Location | Sort-Object Name
     foreach ($location in $locationSummary) {
         $locationStorage = ($location.Group | Where-Object { $_.DatabaseSizeGB -ne "N/A" } | Measure-Object -Property DatabaseSizeGB -Sum).Sum
-        $locationBackups = ($location.Group | Where-Object { $_.MaxFullBackupSizeGB -ne "N/A" } | Measure-Object -Property MaxFullBackupSizeGB -Sum).Sum
+        $locationBackups = ($location.Group | Where-Object { $_.TotalBackupSizeGB -ne "N/A" } | Measure-Object -Property TotalBackupSizeGB -Sum).Sum
         
         Write-Host "Location: $($location.Name)" -ForegroundColor Yellow
         Write-Host "  Databases: $($location.Count)"
         Write-Host "  Storage Used: $([math]::Round($locationStorage, 2)) GB"
-        Write-Host "  Full Backup Storage: $([math]::Round($locationBackups, 2)) GB"
+        Write-Host "  Backup Storage: $([math]::Round($locationBackups, 2)) GB"
         Write-Host ""
     }
+     
 }
 catch {
     Write-Error "Script execution failed: $_"
