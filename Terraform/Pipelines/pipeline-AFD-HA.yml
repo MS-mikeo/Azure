@@ -9,8 +9,6 @@ trigger:
   paths:
     include:
     - terraform/*
-    - azure-pipelines.yml
-
 pr:
   branches:
     include:
