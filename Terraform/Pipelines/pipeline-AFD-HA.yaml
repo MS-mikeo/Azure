@@ -1,0 +1,276 @@
+# Azure DevOps Pipeline for AFD High Availability Demo
+# This pipeline deploys the Azure Front Door + Traffic Manager HA architecture
+
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    include:
+    - terraform/*
+    - azure-pipelines.yml
+
+pr:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - terraform/*
+
+variables:
+  # Pipeline variables
+  - name: terraform_version
+    value: '1.6.0'
+  - name: terraform_working_directory
+    value: '$(System.DefaultWorkingDirectory)'
+  - name: artifact_name
+    value: 'terraform-plan'
+  
+  # Environment-specific variable groups (create these in Azure DevOps)
+  - group: 'terraform-demo-dev'     # For development environment
+  - group: 'terraform-demo-prod'    # For production environment
+
+stages:
+- stage: Validate
+  displayName: 'Validate Terraform'
+  jobs:
+  - job: TerraformValidate
+    displayName: 'Terraform Validate and Plan'
+    pool:
+      vmImage: 'ubuntu-latest'
+    
+    steps:
+    - checkout: self
+      displayName: 'Checkout Repository'
+    
+    - task: TerraformInstaller@0
+      displayName: 'Install Terraform'
+      inputs:
+        terraformVersion: '$(terraform_version)'
+    
+    - task: AzureCLI@2
+      displayName: 'Azure CLI Login and Set Context'
+      inputs:
+        azureSubscription: '$(azure_service_connection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "Setting Azure context..."
+          az account show
+          echo "Logged in successfully"
+    
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Init'
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(terraform_working_directory)'
+        backendServiceArm: '$(azure_service_connection)'
+        backendAzureRmResourceGroupName: '$(terraform_backend_resource_group)'
+        backendAzureRmStorageAccountName: '$(terraform_backend_storage_account)'
+        backendAzureRmContainerName: '$(terraform_backend_container)'
+        backendAzureRmKey: 'afd-ha-demo-$(environment_name).tfstate'
+    
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Validate'
+      inputs:
+        provider: 'azurerm'
+        command: 'validate'
+        workingDirectory: '$(terraform_working_directory)'
+    
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Plan'
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: '$(terraform_working_directory)'
+        environmentServiceNameAzureRM: '$(azure_service_connection)'
+        commandOptions: |
+          -var="environment=$(environment_name)" \
+          -var="application_name=$(application_name)" \
+          -var="location_primary=$(location_primary)" \
+          -var="location_secondary=$(location_secondary)" \
+          -var="enable_waf=$(enable_waf)" \
+          -out="$(terraform_working_directory)/terraform.tfplan"
+    
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Terraform Plan'
+      inputs:
+        targetPath: '$(terraform_working_directory)'
+        artifact: '$(artifact_name)'
+        publishLocation: 'pipeline'
+
+- stage: DeployDev
+  displayName: 'Deploy to Development'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+  dependsOn: Validate
+  variables:
+  - group: 'terraform-demo-dev'
+  jobs:
+  - deployment: TerraformApplyDev
+    displayName: 'Deploy to Development Environment'
+    pool:
+      vmImage: 'ubuntu-latest'
+    environment: 'development'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: '$(artifact_name)'
+            displayName: 'Download Terraform Plan'
+          
+          - task: TerraformInstaller@0
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: '$(terraform_version)'
+          
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Init'
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(Pipeline.Workspace)/$(artifact_name)'
+              backendServiceArm: '$(azure_service_connection)'
+              backendAzureRmResourceGroupName: '$(terraform_backend_resource_group)'
+              backendAzureRmStorageAccountName: '$(terraform_backend_storage_account)'
+              backendAzureRmContainerName: '$(terraform_backend_container)'
+              backendAzureRmKey: 'afd-ha-demo-$(environment_name).tfstate'
+          
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Apply'
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              workingDirectory: '$(Pipeline.Workspace)/$(artifact_name)'
+              environmentServiceNameAzureRM: '$(azure_service_connection)'
+              commandOptions: 'terraform.tfplan'
+          
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Output'
+            inputs:
+              provider: 'azurerm'
+              command: 'output'
+              workingDirectory: '$(Pipeline.Workspace)/$(artifact_name)'
+              environmentServiceNameAzureRM: '$(azure_service_connection)'
+
+- stage: DeployProd
+  displayName: 'Deploy to Production'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  dependsOn: Validate
+  variables:
+  - group: 'terraform-demo-prod'
+  jobs:
+  - deployment: TerraformApplyProd
+    displayName: 'Deploy to Production Environment'
+    pool:
+      vmImage: 'ubuntu-latest'
+    environment: 'production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: '$(artifact_name)'
+            displayName: 'Download Terraform Plan'
+          
+          - task: TerraformInstaller@0
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: '$(terraform_version)'
+          
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Init'
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(Pipeline.Workspace)/$(artifact_name)'
+              backendServiceArm: '$(azure_service_connection)'
+              backendAzureRmResourceGroupName: '$(terraform_backend_resource_group)'
+              backendAzureRmStorageAccountName: '$(terraform_backend_storage_account)'
+              backendAzureRmContainerName: '$(terraform_backend_container)'
+              backendAzureRmKey: 'afd-ha-demo-$(environment_name).tfstate'
+          
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Apply'
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              workingDirectory: '$(Pipeline.Workspace)/$(artifact_name)'
+              environmentServiceNameAzureRM: '$(azure_service_connection)'
+              commandOptions: 'terraform.tfplan'
+          
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Output'
+            inputs:
+              provider: 'azurerm'
+              command: 'output'
+              workingDirectory: '$(Pipeline.Workspace)/$(artifact_name)'
+              environmentServiceNameAzureRM: '$(azure_service_connection)'
+
+- stage: Test
+  displayName: 'Test Deployment'
+  condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/develop'))
+  dependsOn: 
+  - DeployDev
+  - DeployProd
+  condition: or(succeeded('DeployDev'), succeeded('DeployProd'))
+  jobs:
+  - job: TestDeployment
+    displayName: 'Test High Availability'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+      displayName: 'Checkout Repository'
+    
+    - task: TerraformInstaller@0
+      displayName: 'Install Terraform'
+      inputs:
+        terraformVersion: '$(terraform_version)'
+    
+    - task: TerraformTaskV4@4
+      displayName: 'Get Terraform Outputs'
+      inputs:
+        provider: 'azurerm'
+        command: 'output'
+        workingDirectory: '$(terraform_working_directory)'
+        environmentServiceNameAzureRM: '$(azure_service_connection)'
+    
+    - task: PowerShell@2
+      displayName: 'Test Application Endpoints'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Get the Traffic Manager FQDN from Terraform output
+          $terraformOutput = terraform output -json | ConvertFrom-Json
+          $primaryEndpoint = $terraformOutput.primary_traffic_manager_fqdn.value
+          $frontDoorEndpoint = $terraformOutput.azure_front_door_endpoint.value
+          
+          Write-Host "Testing endpoints..."
+          Write-Host "Primary Traffic Manager: http://$primaryEndpoint"
+          Write-Host "Azure Front Door: http://$frontDoorEndpoint"
+          
+          # Test primary endpoint
+          try {
+            $response = Invoke-WebRequest -Uri "http://$primaryEndpoint" -TimeoutSec 30 -UseBasicParsing
+            Write-Host "✅ Primary endpoint responded with status: $($response.StatusCode)"
+            Write-Host "Response content preview: $($response.Content.Substring(0, [Math]::Min(200, $response.Content.Length)))"
+          } catch {
+            Write-Error "❌ Primary endpoint test failed: $($_.Exception.Message)"
+            exit 1
+          }
+          
+          # Test Front Door endpoint
+          try {
+            $response = Invoke-WebRequest -Uri "http://$frontDoorEndpoint" -TimeoutSec 30 -UseBasicParsing
+            Write-Host "✅ Front Door endpoint responded with status: $($response.StatusCode)"
+          } catch {
+            Write-Warning "⚠️ Front Door endpoint test failed (may still be provisioning): $($_.Exception.Message)"
+          }
+          
+          Write-Host "✅ Basic connectivity tests completed successfully"
+        workingDirectory: '$(terraform_working_directory)'
+        pwsh: true
