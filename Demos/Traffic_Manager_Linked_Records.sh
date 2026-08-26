@@ -8,6 +8,7 @@ SUBSCRIPTION="YOUR_SUBSCRIPTION_ID"
 RG="YOUR_RG_NAME"
 ### ------------------------
 
+
 az account set --subscription "$SUBSCRIPTION"
 
 # Random suffix so MANY people can deploy in parallel tenants without collisions.
@@ -17,8 +18,7 @@ SFX=$(tr -dc 'a-z0-9' </dev/urandom | head -c 6)
 ZONE="tubdemo-${SFX}.com"          # zone name: not global, but randomized to avoid confusion
 TM_OLD="tm-old-${SFX}"             # old-way TM profile (globally unique)
 TM_NEW="tm-new-${SFX}"             # new-way TM profile (globally unique)
-BACKEND_IP="203.0.113.10"          # RFC 5737 TEST-NET-3: reserved for docs/demos, never routes
-PIP_APP="tubapp-${SFX}"            # Public IP w/ DNS label -> a REAL resolvable FQDN for the CNAME endpoint (label unique per region)
+PIP_APP="tubapp-${SFX}"            # Public IP w/ DNS label -> a REAL resolvable FQDN, used as the endpoint target for BOTH profiles (label unique per region)
 
 echo "Suffix for this run: $SFX"
 
@@ -28,6 +28,13 @@ az network dns zone create -g "$RG" -n "$ZONE"
 NS=$(az network dns zone show -g "$RG" -n "$ZONE" --query "nameServers[0]" -o tsv)
 echo "Azure DNS name server for this zone: $NS"
 
+# Lightweight real FQDN (no compute): a Public IP + DNS label. Used as the
+# endpoint target for BOTH profiles so nothing points at a dead placeholder IP.
+az network public-ip create -g "$RG" -n "$PIP_APP" --sku Standard \
+  --dns-name "$PIP_APP" --allocation-method Static
+APP_FQDN=$(az network public-ip show -g "$RG" -n "$PIP_APP" --query "dnsSettings.fqdn" -o tsv)
+echo "App FQDN (endpoint target): $APP_FQDN"
+
 # ============================================================
 # OLD WAY: Traffic Manager profile + a CNAME that points at
 # <profile>.trafficmanager.net. Client sees the extra CNAME hop.
@@ -36,7 +43,7 @@ az network traffic-manager profile create -g "$RG" -n "$TM_OLD" \
   --routing-method Priority --unique-dns-name "$TM_OLD" \
   --ttl 30 --protocol HTTP --port 80 --path "/"
 az network traffic-manager endpoint create -g "$RG" --profile-name "$TM_OLD" \
-  -n ep1 --type externalEndpoints --target "$BACKEND_IP" --priority 1 --endpoint-status Enabled
+  -n ep1 --type externalEndpoints --target "$APP_FQDN" --priority 1 --endpoint-status Enabled
 
 # The old-school record: a manual CNAME to the trafficmanager.net FQDN
 az network dns record-set cname set-record -g "$RG" -z "$ZONE" \
@@ -47,14 +54,8 @@ az network dns record-set cname set-record -g "$RG" -z "$ZONE" \
 # links directly to the TM profile via --tm-profile. Azure DNS flattens ->
 # returns the endpoint FQDN directly, with NO trafficmanager.net hop.
 # Strictly Typed Profile: a CNAME record requires a CNAME-typed TM profile
-# whose endpoints are FQDNs (not IPs) -- hence the Public IP + DNS label below.
+# whose endpoints are FQDNs (not IPs) -- we reuse the Public IP FQDN above.
 # ============================================================
-# Lightweight real FQDN for the endpoint: a Public IP + DNS label (no compute).
-az network public-ip create -g "$RG" -n "$PIP_APP" --sku Standard \
-  --dns-name "$PIP_APP" --allocation-method Static
-APP_FQDN=$(az network public-ip show -g "$RG" -n "$PIP_APP" --query "dnsSettings.fqdn" -o tsv)
-echo "App FQDN (CNAME endpoint target): $APP_FQDN"
-
 az network traffic-manager profile create -g "$RG" -n "$TM_NEW" \
   --routing-method Priority --unique-dns-name "$TM_NEW" \
   --record-type CNAME \
