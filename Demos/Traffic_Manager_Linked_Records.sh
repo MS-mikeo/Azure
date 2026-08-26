@@ -17,7 +17,7 @@ SFX=$(tr -dc 'a-z0-9' </dev/urandom | head -c 6)
 ZONE="tubdemo-${SFX}.com"          # zone name: not global, but randomized to avoid confusion
 TM_OLD="tm-old-${SFX}"             # old-way TM profile (globally unique)
 TM_NEW="tm-new-${SFX}"             # new-way TM profile (globally unique)
-BACKEND_IP="20.10.20.30"           # a stand-in "app" IP the TM endpoints return
+BACKEND_IP="203.0.113.10"           # a stand-in "app" IP the TM endpoints return
 
 echo "Suffix for this run: $SFX"
 
