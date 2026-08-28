@@ -76,6 +76,10 @@ az network dns record-set cname create -g "$RG" -z "$ZONE" -n app-new \
 # ============================================================
 # DEMO: query the zone's Azure DNS name server directly (no delegation needed)
 # ============================================================
+# Give the record sets a moment to become queryable on the name server.
+echo ""
+echo "Waiting a few seconds for DNS records to propagate..."
+sleep 10
 echo ""
 echo "=================== OLD WAY (CNAME hop) ==================="
 echo ">>> nslookup app-old.$ZONE  (canonical name shows *.trafficmanager.net)"
