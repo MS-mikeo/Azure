@@ -14,16 +14,15 @@ az account set --subscription "$SUBSCRIPTION"
 # CRITICAL: Traffic Manager --unique-dns-name is GLOBALLY unique across all Azure.
 SFX=$(tr -dc 'a-z0-9' </dev/urandom | head -c 6)
 
-# Tags applied to every taggable resource so a SEPARATE cleanup script can
-# rediscover them later (Cloud Shell won't remember these variables days later).
-# NOTE: DNS record sets are NOT taggable -- cleanup finds the tagged ZONE and
-# lists its record sets. demoRun lets you clean one run; demo cleans the family.
+# Tags on every taggable resource so the SEPARATE cleanup script can rediscover
+# them days later (Cloud Shell won't remember these variables). DNS record sets
+# are NOT taggable -- cleanup finds the tagged ZONE and lists its record sets.
 TAGS="demo=tm-linked-records demoRun=${SFX}"
 
 ZONE="tubdemo-${SFX}.com"          # zone name: not global, but randomized to avoid confusion
-TM_OLD="tm-old-${SFX}"             # old-way TM profile (globally unique)
-TM_NEW="tm-new-${SFX}"             # new-way TM profile (globally unique)
-PIP_APP="tubapp-${SFX}"            # Public IP w/ DNS label -> a REAL resolvable FQDN, used as the endpoint target for BOTH profiles (label unique per region)
+TM_OLD="tm-tubdemo-old-${SFX}"             # old-way TM profile (globally unique)
+TM_NEW="tm-tubdemo-new-${SFX}"             # new-way TM profile (globally unique)
+PIP_APP="pip-tubdemo-${SFX}"            # Public IP w/ DNS label -> a REAL resolvable FQDN, used as the endpoint target for BOTH profiles (label unique per region)
 
 echo "Suffix for this run: $SFX"
 
