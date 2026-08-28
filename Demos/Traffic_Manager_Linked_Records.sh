@@ -88,3 +88,24 @@ echo ""
 echo "=================== NEW WAY (linked record / flattened) ==================="
 echo ">>> nslookup app-new.$ZONE  (canonical name is YOUR app FQDN, NO trafficmanager.net)"
 nslookup -type=CNAME "app-new.$ZONE" "$NS" || true
+
+# ============================================================
+# SAVE-FOR-LATER: print the exact test commands with real values baked in.
+# These can be used for demos after Azure Cloud Shell has timed out
+# ============================================================
+cat <<EOF
+
+############################################################
+#  TRAFFIC MANAGER LINKED RECORDS -- SAVED TEST COMMANDS
+#  Run: $ZONE   (name server: $NS)
+#  Copy/paste these later -- no variables needed.
+############################################################
+
+# OLD way -- app-old CNAME (canonical name exposes *.trafficmanager.net):
+nslookup -type=CNAME app-old.$ZONE $NS
+
+# NEW way -- app-new CNAME linked record (returns YOUR app FQDN, no trafficmanager.net):
+nslookup -type=CNAME app-new.$ZONE $NS
+
+############################################################
+EOF
