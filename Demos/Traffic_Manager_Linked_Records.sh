@@ -16,9 +16,9 @@ az account set --subscription "$SUBSCRIPTION"
 SFX=$(tr -dc 'a-z0-9' </dev/urandom | head -c 6)
 
 ZONE="tubdemo-${SFX}.com"          # zone name: not global, but randomized to avoid confusion
-TM_OLD="tm-old-${SFX}"             # old-way TM profile (globally unique)
-TM_NEW="tm-new-${SFX}"             # new-way TM profile (globally unique)
-PIP_APP="tubapp-${SFX}"            # Public IP w/ DNS label -> a REAL resolvable FQDN, used as the endpoint target for BOTH profiles (label unique per region)
+TM_OLD="tm-tubdemo-old-${SFX}"             # old-way TM profile (globally unique)
+TM_NEW="tm--tubdemo-new-${SFX}"             # new-way TM profile (globally unique)
+PIP_APP="tubapp-tubdemo-${SFX}"            # Public IP w/ DNS label -> a REAL resolvable FQDN, used as the endpoint target for BOTH profiles (label unique per region)
 
 echo "Suffix for this run: $SFX"
 
@@ -80,26 +80,3 @@ echo ""
 echo "=================== NEW WAY (linked record / flattened) ==================="
 echo ">>> nslookup app-new.$ZONE  (canonical name is YOUR app FQDN, NO trafficmanager.net)"
 nslookup -type=CNAME "app-new.$ZONE" "$NS" || true
-
-# ============================================================
-# CLEANUP  -- ORDER MATTERS (verified)
-# A linked record puts DELETION PROTECTION on the NEW Traffic Manager profile:
-# the profile can't be deleted while a DNS record set still references it.
-# Delete in this order: RECORDS -> PROFILES -> PUBLIC IP -> ZONE (last).
-# WARNING: do NOT delete the zone before its linked records. Doing so orphans
-# the profile's reference counter (a preview bug: ParentResourceNotFound on the
-# records + the profile still reports itself "referenced"). Recovery if you hit
-# it: recreate the same-named zone + the linked record(s) with --tm-profile,
-# then run this block in order.
-# ============================================================
-# 1) Records first (releases the deletion-protection hold on the profiles)
-az network dns record-set cname delete -g "$RG" -z "$ZONE" -n app-new -y
-az network dns record-set cname delete -g "$RG" -z "$ZONE" -n app-old -y
-# 2) Traffic Manager profiles (now unreferenced)
-az network traffic-manager profile delete -g "$RG" -n "$TM_OLD"
-az network traffic-manager profile delete -g "$RG" -n "$TM_NEW"
-# 3) Public IP
-az network public-ip delete -g "$RG" -n "$PIP_APP"
-# 4) Zone LAST
-az network dns zone delete -g "$RG" -n "$ZONE" -y
-# ============================================================
